@@ -154,13 +154,13 @@ def get_Tk_list(ssd_output, cfg=voc):
     num_layers = len(cfg['feature_maps'])
     batch_num = ssd_output[0].size(0)
     # output matrix
-    res = torch.zeros((batch_num, num_layers, cfg['num_classes']), dtype=torch.float)
+    res = torch.zeros((batch_num, num_layers, cfg['num_classes']), dtype=torch.float).cpu()
     # split output by layers
     splt_points = [0 for _ in range(num_layers + 1)]
     for i, map_len, num_boxes in zip(range(num_layers), cfg['feature_maps'], cfg['num_prior_boxes']):
         splt_points[i + 1] = splt_points[i] + map_len * map_len * num_boxes
 
-    conf_output = nn.Softmax(dim=-1)(ssd_output[1])
+    conf_output = nn.Softmax(dim=-1)(ssd_output[1]).cpu()
     for i in range(batch_num):
         splt = [conf_output[i][splt_points[j]:splt_points[j + 1]] for j in range(num_layers)]
         for j in range(num_layers):
@@ -171,9 +171,12 @@ def get_Tk_list(ssd_output, cfg=voc):
             for k in range(1, cfg['num_classes']):
                 # the conf matrix of class k, from layer j, img i in the given batch
                 m = splt[j][:, k]
-                msk = (m <= 0.5).type(torch.float)
+                m = m[m > 0.5]
+                if m.size(0) == 0:
+                    continue
+                # msk = (m <= 0.5).type(torch.float)
                 # for each element e in m, e = e if e > 0.5 else 1. - e
-                m += -2. * m * msk + msk
+                # m += -2. * m * msk + msk
                 res[i, j, k] = m.mean().item()
 
     return res
