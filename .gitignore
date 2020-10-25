@@ -2,3 +2,5 @@
 weights/
 data/VOCdevkit/*
 *.pyc
+*.jpg
+*.pkl
