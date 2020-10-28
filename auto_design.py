@@ -5,15 +5,15 @@ import torch
 from data.voc0712 import VOC_CLASSES
 from utils.my_args import Arguments
 from torch import nn
+import pickle
 
 
-def auto_design_tmp(net, dataset, data_loader, cfg=voc):
-    # assert ssd_net.phase == 'train'
+def generate_dets(net, dataset, data_loader):
     batch_iterator = iter(data_loader)
     # num_layers * num_classes
-    # ak_lst[layer_idx, class_idx] = score of the class on the layer
-    ak_lst = torch.zeros((len(cfg['feature_maps']), cfg['num_classes']), dtype=torch.float).cpu()
-    total_imgs = 0.
+    det_lst = []
+    total_imgs = len(dataset.ids)
+    cnt = 0
     while True:
         # load train data
         try:
@@ -22,16 +22,48 @@ def auto_design_tmp(net, dataset, data_loader, cfg=voc):
             break
         if args.cuda:
             images = images.cuda()
-        total_imgs += images.size(0)
+        cnt += images.size(0)
+        ssd_out = net(images)
+        del images
+        det_lst.append(ssd_out[1].detach().cpu().numpy())
+        print('%d / %d' % (cnt, total_imgs))
+        if cnt % 4000 == 0:
+            with open('det_output_%d.pkl' % cnt, 'wb') as f:
+                pickle.dump(det_lst, f)
+            det_lst.clear()
+            print('saved')
+    with open('det_output_%d.pkl' % cnt, 'wb') as f:
+        pickle.dump(det_lst, f)
+    det_lst.clear()
+    print('saved')
+
+
+def auto_design_tmp(net, dataset, data_loader, cfg=voc):
+    # assert ssd_net.phase == 'train'
+    batch_iterator = iter(data_loader)
+    # num_layers * num_classes
+    # ak_lst[layer_idx, class_idx] = score of the class on the layer
+    ak_lst = torch.zeros((len(cfg['feature_maps']), cfg['num_classes']), dtype=torch.float).cpu()
+    total_imgs = len(dataset.ids)
+    cnt = 0
+    while True:
+        # load train data
+        try:
+            images, _ = next(batch_iterator)
+        except StopIteration:
+            break
+        if args.cuda:
+            images = images.cuda()
+        cnt += images.size(0)
         ssd_out = net(images)
         del images
         out = [o.cpu() for o in ssd_out]
         del ssd_out
         tk_lst = get_Tk_list(out, cfg)
         ak_lst += tk_lst.sum(dim=0)
-        print(total_imgs)
-        if total_imgs >= 4000:
-            break
+        print('')
+        # if total_imgs >= 4000:
+        #     break
     ak_lst /= total_imgs
     ak_lst = ak_lst.t()[1:]
     ak_lst = ak_lst / (ak_lst.sum(dim=1).view(-1, 1).expand_as(ak_lst))
@@ -49,12 +81,13 @@ def main():
     ssd_net.load_weights(args.resume_pth)
     if args.cuda:
         ssd_net = ssd_net.cuda()
-    auto_design_tmp(ssd_net, dataset, data_loader, cfg)
+    generate_dets(ssd_net, dataset, data_loader)
+    # auto_design_tmp(ssd_net, dataset, data_loader, cfg)
 
 
 if __name__ == '__main__':
     args = Arguments()
     args.cuda = True
-    args.batch_size = 8
+    args.batch_size = 16
     main()
 
