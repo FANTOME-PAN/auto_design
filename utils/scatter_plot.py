@@ -27,6 +27,7 @@ def make_points():
         _, gt, h, w = dataset.pull_item(i)
         for xmin, ymin, xmax, ymax, cls_idx in gt:
             area_factor = 1. / math.sqrt((xmax - xmin) * (ymax - ymin))
+            # width : height
             ratio = (xmax - xmin) / (ymax - ymin)
             cls_idx = int(round(cls_idx))
             cls_points[round(cls_idx)].append((area_factor, ratio))

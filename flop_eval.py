@@ -3,11 +3,17 @@ def compute_next_size(input_size, kernel_size, stride=1, padding=0, dilation=0):
     return (input_size - kernel_size + 2 * padding) // stride + 1
 
 
-def eval_conv(in_size, in_chnl, out_chnl, kernel_size, stride=1, padding=0, dilation=0):
+def eval_conv(in_size, in_chnl, out_chnl, kernel_size, stride=1, padding=0, dilation=0, relu=True):
     out_size = compute_next_size(in_size, kernel_size, stride, padding, dilation)
     cal_per_elem = 2 * kernel_size * kernel_size * in_chnl
     ret = cal_per_elem * out_size * out_size * out_chnl
+    if relu:
+        ret += eval_relu(out_size, out_chnl)[0]
     return ret, out_size
+
+
+def eval_relu(in_size, in_chnl):
+    return in_size * in_size * in_chnl, in_size
 
 
 def eval_fc(in_features, out_features):
@@ -358,6 +364,60 @@ def conf_net():
     print('flop = %s' % format(total, ','))
 
 
+def eval_sd():
+    vgg = [
+        ['conv', (3, 32, 3, 1, 1)],
+        ['mp', (2,)],
+        ['conv', (32, 64, 3, 1, 1)],
+        ['mp', (2,)],
+        ['conv', (64, 128, 3, 1, 1)],
+        ['conv', (128, 128, 3, 1, 1)],
+        ['mp', (2,)],
+        ['conv', (128, 256, 3, 1, 1)],
+        # ['conv', (256, 256, 3, 1, 1)],
+        ['mp', (2,)],
+        ['conv', (256, 256, 3, 1, 1)],
+        ['conv', (256, 256, 1, 1, 0)]
+    ]
+
+    extras = [
+        ['conv', (256, 256, 1, 1, 0, False)],
+        ['conv', (256, 256, 3, 2, 1)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3, 2, 1)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3)],
+    ]
+
+    def pip_line_cal(in_dim, lst):
+        tt_flp = 0
+        in_chnl = 0
+        for tp, params in lst:
+            if tp == 'conv':
+                in_chnl = params[1]
+                params = list(params)
+                if len(params) == 6:
+                    params = params[:-1] + [0] + params[-1:]
+                tmp, in_dim = eval_conv(in_dim, *params)
+                tt_flp += tmp
+            elif tp == 'mp':
+                tmp, in_dim = eval_pooling(in_dim, in_chnl)
+                tt_flp += tmp
+        return tt_flp, in_dim
+
+    ret = 0
+    flp, size = pip_line_cal(300, vgg)
+    print('vgg: %s' % format(flp, ','))
+    ret += flp
+    flp, size = pip_line_cal(size, extras)
+    print('extras: %s' % format(flp, ','))
+    ret += flp
+    assert size == 1
+    return ret
+
+
 big = vgg16_conv()
 big += conv6_7()
 big += extra_feature_layers()
@@ -370,3 +430,5 @@ small += classifiers_reduced(5)
 print('\n\nBig net flop = %s\nSmall net flop = %s\n ratio = %f' % (format(big, ','), format(small, ','),
                                                                    small / big))
 conf_net()
+
+print('%s' % format(eval_sd() + classifiers_reduced(2), ','))
