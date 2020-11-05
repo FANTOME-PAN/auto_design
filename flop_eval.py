@@ -1,9 +1,10 @@
-def compute_next_size(input_size, kernel_size, stride=1, padding=0, dilation=0):
-    kernel_size += dilation * (kernel_size - 1)
+# default dilation = 1, equal to the default settings of torch
+def compute_next_size(input_size, kernel_size, stride=1, padding=0, dilation=1):
+    kernel_size += (dilation - 1) * (kernel_size - 1)
     return (input_size - kernel_size + 2 * padding) // stride + 1
 
 
-def eval_conv(in_size, in_chnl, out_chnl, kernel_size, stride=1, padding=0, dilation=0, relu=True):
+def eval_conv(in_size, in_chnl, out_chnl, kernel_size, stride=1, padding=0, dilation=1, relu=True):
     out_size = compute_next_size(in_size, kernel_size, stride, padding, dilation)
     cal_per_elem = 2 * kernel_size * kernel_size * in_chnl
     ret = cal_per_elem * out_size * out_size * out_chnl

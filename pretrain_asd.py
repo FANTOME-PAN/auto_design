@@ -31,7 +31,7 @@ def parse_args():
                         help='Number of workers used in dataloading')
     parser.add_argument('--cuda', default=True, type=str2bool,
                         help='Use CUDA to train model')
-    parser.add_argument('--lr', '--learning-rate', default=3e-3, type=float,
+    parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                         help='initial learning rate')
     parser.add_argument('--momentum', default=0.9, type=float,
                         help='Momentum value for optim')
@@ -45,31 +45,90 @@ def parse_args():
 
 
 def weights_init(m):
-    if isinstance(m, nn.Conv2d):
-        nn.init.xavier_uniform_(m.weight)
-        m.bias.zero_()
+    with torch.no_grad():
+        if isinstance(m, nn.Conv2d):
+            nn.init.xavier_uniform_(m.weight)
+            m.bias.zero_()
 
 
 class Wrapper(nn.Module):
     def __init__(self, net: AutoTailoredSmallDetector, num_classes):
         super(Wrapper, self).__init__()
         self.base = net.vgg
+        self.pool = nn.AdaptiveMaxPool2d(2)
         self.extras = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(256, 512),
+            nn.Linear(1024, 1024),
             nn.Dropout(),
             nn.ReLU(inplace=True),
-            nn.Linear(512, num_classes),
-            nn.Softmax()
+            nn.Linear(1024, num_classes),
+            nn.Softmax(dim=1)
         )
 
     def forward(self, x):
-        out = self.base(x).view(x.size(0), -1)
-        out = self.extras(out)
+        out = x
+        for layer in self.base:
+            out = layer(out)
+        out = self.pool(out)
+        out = self.extras(out.view(x.size(0), -1))
         return out
 
 
+# temporary
+def make_dataset(name='VOC', ratio=3):
+    import os
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+    if name == 'VOC':
+        # torch.cuda.set_device(1)
+        cfg = voc_sd_sofa
+        cls_idx = VOC_CLASSES.index('sofa')
+        bsize = 1024
+        dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        if not os.path.exists('msk_cache.pth'):
+            data_loader = data.DataLoader(dataset, bsize,
+                                          num_workers=args.num_workers, collate_fn=detection_collate,
+                                          pin_memory=True)
+            msk = torch.zeros((len(dataset),), dtype=torch.uint8).cuda()
+            for i, batch in enumerate(data_loader):
+                gt = batch[1]
+                csize = len(gt)
+                gt = [1 if cls_idx in ann[:, -1] else 0 for ann in gt]
+                gt = torch.tensor(gt, dtype=torch.uint8).cuda()
+                gt = gt.nonzero().flatten() + i * bsize
+                msk[gt] = 1
+                print('%d / %d' % (i * bsize + csize, len(dataset)))
+            # for i in range(len(dataset)):
+            #     img, gt = dataset[i]
+            #     if cls_idx in gt[:, -1]:
+            #         msk[i] = 1
+            #         print('%d / %d' % (i + 1, len(dataset)))
+            torch.save(msk.cpu(), 'msk_cache.pth')
+        else:
+            msk = torch.load('msk_cache.pth').cuda()
+        import random
+        total = msk.sum().item()
+        max_num = round(min(total * ratio, len(dataset) - total))
+        reserved = random.sample((~msk).nonzero().tolist(), max_num)
+        msk[reserved] = 1
+        f07 = open('trainval_sofa07.txt', 'w')
+        f12 = open('trainval_sofa12.txt', 'w')
+        for i in range(msk.size(0)):
+            if msk[i] == 1:
+                if 'VOC2007' in dataset.ids[i][0]:
+                    f07.write('%s\n' % dataset.ids[i][1])
+                else:
+                    f12.write('%s\n' % dataset.ids[i][1])
+        f07.close()
+        f12.close()
+    else:
+        raise NotImplementedError()
+
+
 def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
+    import os
+    if not os.path.exists('weights/cache'):
+        os.mkdir('weights/cache')
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
     wrapper_net = Wrapper(asd_net, 2)
     cls_idx = VOC_CLASSES.index(cls)
     if args.cuda:
@@ -80,7 +139,8 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
         raise NotImplementedError()
     elif args.dataset == 'VOC':
         cfg = voc_sd_sofa
-        dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        dataset = VOCDetection(root=VOC_ROOT, image_sets=[('2007', 'trainval_sofa'), ('2012', 'trainval_sofa')],
+                               transform=SSDAugmentation(cfg['min_dim'], MEANS))
     else:
         raise RuntimeError()
 
@@ -91,29 +151,24 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
         wrapper_net.apply(weights_init)
 
     if args.cuda:
+        asd_net = asd_net.cuda()
+        wrapper_net = wrapper_net.cuda()
         net = torch.nn.DataParallel(wrapper_net)
         cudnn.benchmark = True
     else:
         net = wrapper_net
 
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
-                          weight_decay=args.weight_decay)
+    optimizer = optim.Adam(net.parameters(), lr=args.lr,
+                           weight_decay=args.weight_decay)
     loss_fn = nn.CrossEntropyLoss()
 
     net.train()
 
     # loss counters
-    loc_loss = 0
-    conf_loss = 0
-    epoch = 0
     print('Loading the dataset...')
-
-    epoch_size = len(dataset) // args.batch_size
     print('Training SSD on:', dataset.name)
     print('Using the specified args:')
     print(args)
-
-    step_index = 0
 
     data_loader = data.DataLoader(dataset, args.batch_size,
                                   num_workers=args.num_workers,
@@ -133,12 +188,13 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
         if args.cuda:
             images = images.cuda()
             targets = [ann.cuda() for ann in targets]
-        targets = []
+        targets = [1. if cls_idx in ann[:, -1].type(torch.int) else 0. for ann in targets]
+        gt = torch.tensor(targets, dtype=torch.long).cuda()
         t0 = time.time()
         out = net(images)
         # backprop
         optimizer.zero_grad()
-        loss = loss_fn(out, targets)
+        loss = loss_fn(out, gt)
         loss.backward()
         optimizer.step()
         t1 = time.time()
@@ -152,7 +208,7 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
 
         if iteration != 0 and iteration % 2000 == 0:
             print('Saving state, iter:', iteration)
-            torch.save(wrapper_net.state_dict(), ('weights/cache/big_net_%s_' % args.dataset) +
+            torch.save(wrapper_net.state_dict(), ('weights/cache/vgg9lite_wrapper_%s_' % args.dataset) +
                        repr(iteration) + '.pth')
     torch.save(asd_net.state_dict(),
                args.save_folder + 'vgg9_lite_' + args.dataset + '.pth')
@@ -169,3 +225,7 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
 
 if __name__ == '__main__':
     args = parse_args()
+    # make_dataset()
+    asd_net = build_asd('train', cfg=voc_sd_sofa)
+    pretrain_basenet(asd_net)
+
