@@ -6,6 +6,7 @@ import os
 from data.config import voc_sd_sofa, MEANS
 import time
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
+from data.coco18 import COCO_CLASSES, COCO_ROOT, COCODetection
 from utils.augmentations import SSDAugmentation
 from torch.backends import cudnn
 from data import *
@@ -19,8 +20,10 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Auto-tailored Small Detector Training With Pytorch')
     train_set = parser.add_mutually_exclusive_group()
-    parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
+    parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO18'],
                         type=str, help='VOC, COCO, etc.')
+    parser.add_argument('--dataset_root', default=None, type=str,
+                        help='root path of given dataset.')
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Batch size for training')
     parser.add_argument('--resume', default=None, type=str,
@@ -75,6 +78,54 @@ class Wrapper(nn.Module):
 
 
 # temporary
+# def make_dataset(name='VOC', ratio=3):
+#     import os
+#     os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+#     if name == 'VOC':
+#         # torch.cuda.set_device(1)
+#         cfg = voc_sd_sofa
+#         cls_idx = VOC_CLASSES.index('sofa')
+#         bsize = 1024
+#         dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+#         if not os.path.exists('msk_cache.pth'):
+#             data_loader = data.DataLoader(dataset, bsize,
+#                                           num_workers=args.num_workers, collate_fn=detection_collate,
+#                                           pin_memory=True)
+#             msk = torch.zeros((len(dataset),), dtype=torch.uint8).cuda()
+#             for i, batch in enumerate(data_loader):
+#                 gt = batch[1]
+#                 csize = len(gt)
+#                 gt = [1 if cls_idx in ann[:, -1] else 0 for ann in gt]
+#                 gt = torch.tensor(gt, dtype=torch.uint8).cuda()
+#                 gt = gt.nonzero().flatten() + i * bsize
+#                 msk[gt] = 1
+#                 print('%d / %d' % (i * bsize + csize, len(dataset)))
+#             # for i in range(len(dataset)):
+#             #     img, gt = dataset[i]
+#             #     if cls_idx in gt[:, -1]:
+#             #         msk[i] = 1
+#             #         print('%d / %d' % (i + 1, len(dataset)))
+#             torch.save(msk.cpu(), 'msk_cache.pth')
+#         else:
+#             msk = torch.load('msk_cache.pth').cuda()
+#         import random
+#         total = msk.sum().item()
+#         max_num = round(min(total * ratio, len(dataset) - total))
+#         reserved = random.sample((~msk).nonzero().tolist(), max_num)
+#         msk[reserved] = 1
+#         f07 = open('trainval_sofa07.txt', 'w')
+#         f12 = open('trainval_sofa12.txt', 'w')
+#         for i in range(msk.size(0)):
+#             if msk[i] == 1:
+#                 if 'VOC2007' in dataset.ids[i][0]:
+#                     f07.write('%s\n' % dataset.ids[i][1])
+#                 else:
+#                     f12.write('%s\n' % dataset.ids[i][1])
+#         f07.close()
+#         f12.close()
+#     else:
+#         raise NotImplementedError()
+
 def make_dataset(name='VOC', ratio=3):
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
@@ -82,7 +133,7 @@ def make_dataset(name='VOC', ratio=3):
         # torch.cuda.set_device(1)
         cfg = voc_sd_sofa
         cls_idx = VOC_CLASSES.index('sofa')
-        bsize = 1024
+        bsize = 32
         dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
         if not os.path.exists('msk_cache.pth'):
             data_loader = data.DataLoader(dataset, bsize,
@@ -135,8 +186,10 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     if not os.path.exists(args.save_folder):
         os.mkdir(args.save_folder)
-    if args.dataset == 'COCO':
-        raise NotImplementedError()
+    if args.dataset == 'COCO18':
+        # cfg =
+        root = COCO_ROOT if args.dataset_root is None else args.dataset_root
+        dataset = COCODetection(root=root, transform=SSDAugmentation(300, MEANS))
     elif args.dataset == 'VOC':
         cfg = voc_sd_sofa
         dataset = VOCDetection(root=VOC_ROOT, image_sets=[('2007', 'trainval_sofa'), ('2012', 'trainval_sofa')],
