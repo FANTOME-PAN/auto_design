@@ -18,11 +18,10 @@ else:
     import xml.etree.ElementTree as ET
 
 COCO_CLASSES = (  # always index 0
-    'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
-    'sheep', 'sofa', 'train', 'tvmonitor')
+    'horse', 'train', 'motorcycle', 'cat', 'bus',
+    'cow', 'bird', 'chair', 'potted plant', 'bottle',
+    'boat', 'car', 'dining table', 'sheep',
+    'person', 'airplane', 'dog', 'bicycle')
 
 # note: if you used our download scripts, this should be right
 COCO_ROOT = osp.join(HOME, "data/coco18/")
