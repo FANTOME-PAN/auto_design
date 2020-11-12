@@ -21,6 +21,14 @@ def eval_fc(in_features, out_features):
     return 2 * in_features * out_features
 
 
+def eval_fire_module(in_size, in_channels, s_1x1, e_1x1, e_3x3):
+    flp = eval_conv(in_size, in_channels, s_1x1, kernel_size=1)[0]
+    flp += eval_conv(in_size, s_1x1, e_1x1, kernel_size=1)[0]
+    flp += eval_conv(in_size, s_1x1, e_3x3, kernel_size=3, padding=1)[0]
+    # ignore cat operation
+    return flp, in_size
+
+
 def eval_pooling(in_size, in_chnl, kernel_size=2, stride=2, padding=0):
     size = compute_next_size(in_size, kernel_size, stride, padding)
     return size * size * in_chnl * kernel_size * kernel_size, size
@@ -392,19 +400,19 @@ def eval_sd():
         ['conv', (128, 256, 3)],
     ]
 
-    def pip_line_cal(in_dim, lst):
+    def pip_line_cal(in_dim, lst, in_chnl=3):
         tt_flp = 0
-        in_chnl = 0
         for tp, params in lst:
             if tp == 'conv':
-                in_chnl = params[1]
                 params = list(params)
                 if len(params) == 6:
                     params = params[:-1] + [0] + params[-1:]
+                assert params[0] == in_chnl
                 tmp, in_dim = eval_conv(in_dim, *params)
+                in_chnl = params[1]
                 tt_flp += tmp
             elif tp == 'mp':
-                tmp, in_dim = eval_pooling(in_dim, in_chnl)
+                tmp, in_dim = eval_pooling(in_dim, in_chnl, *params)
                 tt_flp += tmp
         return tt_flp, in_dim
 
@@ -412,7 +420,65 @@ def eval_sd():
     flp, size = pip_line_cal(300, vgg)
     print('vgg: %s' % format(flp, ','))
     ret += flp
-    flp, size = pip_line_cal(size, extras)
+    flp, size = pip_line_cal(size, extras, in_chnl=256)
+    print('extras: %s' % format(flp, ','))
+    ret += flp
+    assert size == 1
+    return ret
+
+
+def eval_sq_net():
+    vgg = [
+        ['conv', (3, 32, 3, 1, 1)],
+        ['mp', (2,)],
+        ['fire', (16, 64, 64)],
+        ['fire', (32, 128, 128)],
+        ['mp', (2,)],
+        ['fire', (32, 128, 128)],
+        ['fire', (48, 192, 192)],
+        ['mp', (2, 2, 1)],
+        ['fire', (48, 192, 192)],
+        ['fire', (64, 256, 256)],
+        ['mp', (2,)],
+        ['fire', (64, 256, 256)],
+    ]
+
+    extras = [
+        ['conv', (512, 256, 1, 1, 0, False)],
+        ['conv', (256, 256, 3, 2, 1)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3, 2, 1)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3)],
+        ['conv', (256, 128, 1, 1, 0, False)],
+        ['conv', (128, 256, 3)],
+    ]
+
+    def pip_line_cal(in_dim, lst, in_chnl=3):
+        tt_flp = 0
+        for tp, params in lst:
+            if tp == 'conv':
+                params = list(params)
+                if len(params) == 6:
+                    params = params[:-1] + [0] + params[-1:]
+                assert params[0] == in_chnl
+                tmp, in_dim = eval_conv(in_dim, *params)
+                in_chnl = params[1]
+            elif tp == 'fire':
+                tmp, in_dim = eval_fire_module(in_dim, in_chnl, *params)
+                in_chnl = params[1] + params[2]
+            elif tp == 'mp':
+                tmp, in_dim = eval_pooling(in_dim, in_chnl, *params)
+            else:
+                raise not NotImplementedError()
+            tt_flp += tmp
+        return tt_flp, in_dim
+
+    ret = 0
+    flp, size = pip_line_cal(300, vgg)
+    print('vgg: %s' % format(flp, ','))
+    ret += flp
+    flp, size = pip_line_cal(size, extras, in_chnl=512)
     print('extras: %s' % format(flp, ','))
     ret += flp
     assert size == 1
@@ -432,4 +498,5 @@ print('\n\nBig net flop = %s\nSmall net flop = %s\n ratio = %f' % (format(big, '
                                                                    small / big))
 conf_net()
 
-print('%s' % format(eval_sd() + classifiers_reduced(2), ','))
+print('use vgg8-lite: %s' % format(eval_sd() + classifiers_reduced(2), ','))
+print('use squeeze net: %s' % format(eval_sq_net() + classifiers_reduced(2), ','))
