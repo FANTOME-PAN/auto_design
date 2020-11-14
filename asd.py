@@ -82,7 +82,7 @@ class AutoTailoredSmallDetector(nn.Module):
             print('Sorry only .pth and .pkl files supported.')
 
 
-def build_asd(phase, size=300, num_classes=2, cfg=voc_sd):
+def build_asd(phase, base_net=None, size=300, num_classes=2, cfg=None):
     classifier_chnls = {38: 256, 19: 256, 10: 256, 5: 256, 3: 256, 1: 256}
     base = [
         nn.Conv2d(3, 32, 3, 1, 1), nn.ReLU(inplace=True),
@@ -95,10 +95,10 @@ def build_asd(phase, size=300, num_classes=2, cfg=voc_sd):
         nn.Conv2d(128, 256, 3, 1, 1), nn.ReLU(inplace=True),    # 38*38 output
         nn.MaxPool2d(2),    # 19
         nn.Conv2d(256, 256, 3, 1, 4, dilation=4), nn.ReLU(inplace=True),
-        nn.Conv2d(256, 256, 1, 1, 0), nn.ReLU(inplace=True)     # 19*19 output
-    ]
+        nn.Conv2d(256, 512, 1, 1, 0), nn.ReLU(inplace=True)     # 19*19 output
+    ] if base_net is None else base_net
     extras = [
-        nn.Conv2d(256, 256, 1),
+        nn.Conv2d(512, 256, 1),
         nn.Conv2d(256, 256, 3, 2, 1),  # 1 Conv8_2
         nn.Conv2d(256, 128, 1),
         nn.Conv2d(128, 256, 3, 2, 1),  # 3 Conv9_2

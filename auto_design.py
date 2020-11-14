@@ -6,6 +6,7 @@ from data.voc0712 import VOC_CLASSES
 from utils.my_args import Arguments
 from torch import nn
 import pickle
+from layers.squeeze_net import FireModule
 
 
 def generate_dets(net, dataset, data_loader):
@@ -83,6 +84,34 @@ def main():
         ssd_net = ssd_net.cuda()
     generate_dets(ssd_net, dataset, data_loader)
     # auto_design_tmp(ssd_net, dataset, data_loader, cfg)
+
+
+def get_config_voc(class_name, ssd_net, ratio_3x3=0.5, dataset=None):
+    assert class_name == 'sheep'
+    # use ssd_net to estimate the relevance between the given class the others,
+    # like 'horse' and 'cow' to 'sheep', 'train' and 'truck' to 'car'
+
+    # use dataset to determine appropriate prior boxes for the given task
+
+    # use ratio_3x3 to build suitable squeeze net
+    from math import ceil as mc, floor as mf
+    p, q = 1 - ratio_3x3, ratio_3x3
+    base_net = [
+        nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
+        nn.ReLU(inplace=True),
+        nn.MaxPool2d(2),
+        FireModule(32, 16, mc(128 * p), mf(128 * q)),
+        FireModule(128, 32, mc(256 * p), mf(256 * q)),
+        nn.MaxPool2d(2),
+        FireModule(256, 32, mc(256 * p), mf(256 * q)),
+        FireModule(256, 48, mc(384 * p), mf(384 * q)),
+        nn.MaxPool2d(2, 2, 1),
+        FireModule(384, 48, mc(384 * p), mf(384 * q)),
+        FireModule(384, 64, mc(512 * p), mf(512 * q)),
+        nn.MaxPool2d(2),
+        FireModule(512, 64, mc(512 * p), mf(512 * q))
+    ]
+    return base_net, None
 
 
 if __name__ == '__main__':

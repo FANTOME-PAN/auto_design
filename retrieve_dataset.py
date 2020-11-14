@@ -2,6 +2,9 @@ from utils.evaluations import parse_rec
 import pickle
 
 
+# too little images of one target
+# there around 14k images from 80 classes, while only 8 classes have over 500 images and 2 classes have over 1k
+# considering the given size of the dataset, I do not recommend pretraining the basenet on COCO.
 def make_dataset_for_pretrain():
     coco_dir = 'E:/coco/coco2014/'
     with open(coco_dir + 'ImageSets/Main/trainval.txt', 'r') as f:
