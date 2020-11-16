@@ -57,7 +57,7 @@ def weights_init(m):
 class Wrapper(nn.Module):
     def __init__(self, net: AutoTailoredSmallDetector, num_classes):
         super(Wrapper, self).__init__()
-        self.base = net.vgg
+        self.base = net.base
         self.pool = nn.AdaptiveMaxPool2d(2)
         self.extras = nn.Sequential(
             nn.Dropout(),

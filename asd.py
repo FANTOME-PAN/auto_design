@@ -19,7 +19,7 @@ class AutoTailoredSmallDetector(nn.Module):
         self.size = size
 
         # SSD network
-        self.vgg = nn.ModuleList(base)
+        self.base = nn.ModuleList(base)
         self.extras = nn.ModuleList(extras)
 
         self.loc = nn.ModuleList(head[0])
@@ -33,7 +33,7 @@ class AutoTailoredSmallDetector(nn.Module):
     def forward(self, x):
         sources, loc, conf = [], [], []
 
-        for v in self.vgg:
+        for v in self.base:
             x = v(x)
         sources.append(x)
 
@@ -66,8 +66,8 @@ class AutoTailoredSmallDetector(nn.Module):
             )
         return output
 
-    def vgg_forward(self, x):
-        for v in self.vgg:
+    def base_net_forward(self, x):
+        for v in self.base:
             x = v(x)
         return x
 
@@ -82,30 +82,35 @@ class AutoTailoredSmallDetector(nn.Module):
             print('Sorry only .pth and .pkl files supported.')
 
 
-def build_asd(phase, base_net=None, size=300, num_classes=2, cfg=None):
+def build_asd(phase, size=300, ratio_3x3=0.5, num_classes=2, cfg=None):
     classifier_chnls = {38: 256, 19: 256, 10: 256, 5: 256, 3: 256, 1: 256}
-    base = [
-        nn.Conv2d(3, 32, 3, 1, 1), nn.ReLU(inplace=True),
-        nn.MaxPool2d(2),    # 150
-        nn.Conv2d(32, 64, 3, 1, 1), nn.ReLU(inplace=True),
-        nn.MaxPool2d(2),    # 75
-        nn.Conv2d(64, 128, 3, 1, 1), nn.ReLU(inplace=True),
-        nn.Conv2d(128, 128, 3, 1, 1), nn.ReLU(inplace=True),
-        nn.MaxPool2d(2),    # 38
-        nn.Conv2d(128, 256, 3, 1, 1), nn.ReLU(inplace=True),    # 38*38 output
-        nn.MaxPool2d(2),    # 19
-        nn.Conv2d(256, 256, 3, 1, 4, dilation=4), nn.ReLU(inplace=True),
-        nn.Conv2d(256, 512, 1, 1, 0), nn.ReLU(inplace=True)     # 19*19 output
-    ] if base_net is None else base_net
+    from math import ceil as mc, floor as mf
+    from layers.squeeze_net import FireModule
+    p, q = 1 - ratio_3x3, ratio_3x3
+    base_net = [
+        nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
+        nn.ReLU(inplace=True),
+        nn.MaxPool2d(2),
+        FireModule(32, 16, mc(128 * p), mf(128 * q)),       # 150 x 150
+        FireModule(128, 32, mc(256 * p), mf(256 * q)),
+        nn.MaxPool2d(2),
+        FireModule(256, 32, mc(256 * p), mf(256 * q)),      # 75 x 75
+        FireModule(256, 48, mc(384 * p), mf(384 * q)),
+        nn.MaxPool2d(2, 2, 1),
+        FireModule(384, 48, mc(384 * p), mf(384 * q)),      # 38 x 38
+        FireModule(384, 64, mc(512 * p), mf(512 * q)),
+        nn.MaxPool2d(2),
+        FireModule(512, 64, mc(512 * p), mf(512 * q))       # 19 x 19
+    ]
     extras = [
         nn.Conv2d(512, 256, 1),
-        nn.Conv2d(256, 256, 3, 2, 1),  # 1 Conv8_2
+        nn.Conv2d(256, 256, 3, 2, 1),  # 1 Conv8_2  10x10
         nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3, 2, 1),  # 3 Conv9_2
+        nn.Conv2d(128, 256, 3, 2, 1),  # 3 Conv9_2  5x5
         nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3),        # 5 Conv10_2
+        nn.Conv2d(128, 256, 3),        # 5 Conv10_2 3x3
         nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3),        # 7 Conv11_2
+        nn.Conv2d(128, 256, 3),        # 7 Conv11_2 1x1
     ]
     head = [
         [nn.Conv2d(classifier_chnls[feature], cfg['num_prior_boxes'][i] * 4, kernel_size=3, padding=1)
@@ -113,7 +118,7 @@ def build_asd(phase, base_net=None, size=300, num_classes=2, cfg=None):
         [nn.Conv2d(classifier_chnls[feature], cfg['num_prior_boxes'][i] * num_classes, kernel_size=3, padding=1)
          for i, feature in enumerate(cfg['feature_maps'])]
     ]
-    return AutoTailoredSmallDetector(phase, size, base, extras, head, num_classes, cfg)
+    return AutoTailoredSmallDetector(phase, size, base_net, extras, head, num_classes, cfg)
 
 
 

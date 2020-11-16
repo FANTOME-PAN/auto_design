@@ -94,24 +94,22 @@ def get_config_voc(class_name, ssd_net, ratio_3x3=0.5, dataset=None):
     # use dataset to determine appropriate prior boxes for the given task
 
     # use ratio_3x3 to build suitable squeeze net
-    from math import ceil as mc, floor as mf
-    p, q = 1 - ratio_3x3, ratio_3x3
-    base_net = [
-        nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1),
-        nn.ReLU(inplace=True),
-        nn.MaxPool2d(2),
-        FireModule(32, 16, mc(128 * p), mf(128 * q)),
-        FireModule(128, 32, mc(256 * p), mf(256 * q)),
-        nn.MaxPool2d(2),
-        FireModule(256, 32, mc(256 * p), mf(256 * q)),
-        FireModule(256, 48, mc(384 * p), mf(384 * q)),
-        nn.MaxPool2d(2, 2, 1),
-        FireModule(384, 48, mc(384 * p), mf(384 * q)),
-        FireModule(384, 64, mc(512 * p), mf(512 * q)),
-        nn.MaxPool2d(2),
-        FireModule(512, 64, mc(512 * p), mf(512 * q))
-    ]
-    return base_net, None
+    cfg = {
+        'num_classes': 2,
+        'lr_steps': (80000, 100000, 120000),
+        'max_iter': 120000,
+        'feature_maps': [38, 19, 10, 5, 3, 1],
+        'min_dim': 300,
+        'steps': [7.895, 15.789, 30., 60., 100., 300.],
+        'min_sizes': [30, 60, 111, 162, 213, 264],
+        'max_sizes': [60, 111, 162, 213, 264, 315],
+        'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+        'num_prior_boxes': [4, 6, 6, 6, 4, 4],
+        'variance': [0.1, 0.2],
+        'clip': True,
+        'name': 'VOC',
+    }
+    return cfg
 
 
 if __name__ == '__main__':
