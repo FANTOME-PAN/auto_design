@@ -32,15 +32,20 @@ class AutoTailoredSmallDetector(nn.Module):
 
     def forward(self, x):
         sources, loc, conf = [], [], []
-
-        for v in self.base:
+        sur_x = None
+        for i, v in enumerate(self.base):
             x = v(x)
-        sources.append(x)
+            if i in [5, 8, 11]:
+                sur_x = x
+            if i in [6, 9, 12]:
+                x += sur_x
+            if i in self.cfg['base_output_layers']:
+                sources.append(x)
 
         # apply extra layers and cache source layer outputs
         for k, v in enumerate(self.extras):
-            x = F.relu(v(x), inplace=True)
-            if k % 2 == 1:
+            x = v(x)
+            if k in self.config['extras_output_layers']:
                 sources.append(x)
 
         # apply multibox head to source layers
@@ -103,14 +108,14 @@ def build_asd(phase, size=300, ratio_3x3=0.5, num_classes=2, cfg=None):
         FireModule(512, 64, mc(512 * p), mf(512 * q))       # 19 x 19
     ]
     extras = [
-        nn.Conv2d(512, 256, 1),
-        nn.Conv2d(256, 256, 3, 2, 1),  # 1 Conv8_2  10x10
-        nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3, 2, 1),  # 3 Conv9_2  5x5
-        nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3),        # 5 Conv10_2 3x3
-        nn.Conv2d(256, 128, 1),
-        nn.Conv2d(128, 256, 3),        # 7 Conv11_2 1x1
+        nn.Conv2d(512, 256, 1), nn.ReLU(inplace=True),
+        nn.Conv2d(256, 256, 3, 2, 1), nn.ReLU(inplace=True),    # 3 Conv8_2  10x10
+        nn.Conv2d(256, 128, 1), nn.ReLU(inplace=True),
+        nn.Conv2d(128, 256, 3, 2, 1), nn.ReLU(inplace=True),    # 7 Conv9_2  5x5
+        nn.Conv2d(256, 128, 1), nn.ReLU(inplace=True),
+        nn.Conv2d(128, 256, 3), nn.ReLU(inplace=True),          # 11 Conv10_2 3x3
+        nn.Conv2d(256, 128, 1), nn.ReLU(inplace=True),
+        nn.Conv2d(128, 256, 3), nn.ReLU(inplace=True),          # 15 Conv11_2 1x1
     ]
     head = [
         [nn.Conv2d(classifier_chnls[feature], cfg['num_prior_boxes'][i] * 4, kernel_size=3, padding=1)

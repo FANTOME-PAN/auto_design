@@ -105,6 +105,8 @@ def get_config_voc(class_name, ssd_net, ratio_3x3=0.5, dataset=None):
         'max_sizes': [60, 111, 162, 213, 264, 315],
         'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
         'num_prior_boxes': [4, 6, 6, 6, 4, 4],
+        'base_output_layers': [9, 12],
+        'extras_output_layers': [3, 7, 11, 15],
         'variance': [0.1, 0.2],
         'clip': True,
         'name': 'VOC',

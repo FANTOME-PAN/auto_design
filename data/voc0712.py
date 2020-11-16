@@ -77,6 +77,17 @@ class VOCAnnotationTransform(object):
         return res  # [[xmin, ymin, xmax, ymax, label_ind], ... ]
 
 
+class VOCAnnoTransformForASD(VOCAnnotationTransform):
+    def __init__(self, class_name, class_to_ind=None, keep_difficult=False):
+        super(VOCAnnoTransformForASD, self).__init__(class_to_ind, keep_difficult)
+        self.cls_idx = self.class_to_ind[class_name]
+
+    def __call__(self, target, width, height):
+        res = super(VOCAnnoTransformForASD, self).__call__(target, width, height)
+        res = [o for o in res if o[-1] == self.cls_idx]
+        return res
+
+
 class VOCDetection(data.Dataset):
     """VOC Detection Dataset Object
 

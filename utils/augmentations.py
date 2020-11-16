@@ -580,17 +580,17 @@ class SSDAugmentation(object):
 
 
 class ASDAugmentation:
-    def __init__(self):
+    def __init__(self, size=300, mean=(104, 117, 123)):
         self.augment = Compose([
             ConvertFromInts(),
             ToAbsoluteCoords(),
             PhotometricDistort(),
-            ExpandToSize(mean=(104, 117, 123), w_h_ratio=1., choice='random'),
+            ExpandToSize(mean=mean, w_h_ratio=1., choice='random'),
             RandomSquareSampleCrop(),
             RandomMirror(),
             ToPercentCoords(),
-            Resize(size=300),
-            SubtractMeans(mean=(104, 117, 123))
+            Resize(size=size),
+            SubtractMeans(mean=mean)
         ])
 
     def __call__(self, img, boxes, labels):
