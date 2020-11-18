@@ -179,7 +179,7 @@ def pretrain_basenet(asd_net: AutoTailoredSmallDetector, cls='sofa'):
     import os
     if not os.path.exists('weights/cache'):
         os.mkdir('weights/cache')
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
     wrapper_net = Wrapper(asd_net, 2)
     cls_idx = VOC_CLASSES.index(cls)
     if args.cuda:
