@@ -468,7 +468,7 @@ if __name__ == '__main__':
                                   BaseTransform(300, dataset_mean),
                                   HelmetAnnotationTransform())
     elif args.dataset == 'VOC':
-        dataset = VOCDetection(root, [('2007', 'test')],
+        dataset = VOCDetection(root, [('2007', 'trainval'), ('2012', 'trainval')],
                                BaseTransform(300, dataset_mean),
                                VOCAnnotationTransform())
     else:

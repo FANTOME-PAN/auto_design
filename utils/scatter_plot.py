@@ -9,7 +9,6 @@ import numpy as np
 from math import sqrt
 from itertools import product
 
-
 rt = '..\\data\\VOCdevkit'
 dataset = VOCDetection(root=rt, transform=SSDAugmentation(voc['min_dim'], MEANS))
 
@@ -67,11 +66,11 @@ def scatter():
     for i, cls in enumerate(VOC_CLASSES):
         x = [map_x(t[0]) for t in cls_points[i]]
         y = [map_y(t[1]) for t in cls_points[i]]
-        plt.scatter(x, y, alpha=0.1)
+        plt.scatter(x, y, alpha=0.16, s=12)
         # draw voc config points
-        x = [map_x(t[0]) for t in voc_config_points]
-        y = [map_x(t[1]) for t in voc_config_points]
-        plt.scatter(x, y, alpha=0.1)
+        x = [map_x(300 / t[0]) for t in voc_config_points]
+        y = [map_y(t[1]) for t in voc_config_points]
+        plt.scatter(x, y, alpha=0.14, s=900, c='r')
         plt.title(cls)
         plt.xticks([map_x(x) for x in lst], [str(x) for x in lst])
         plt.yticks([-3, -2, -1, 0, 1, 2, 3], ['1/4', '1/3', '1/2', '1', '2', '3', '4'])
