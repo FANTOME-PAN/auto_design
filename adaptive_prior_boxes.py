@@ -21,8 +21,10 @@ parser.add_argument('--dataset_root', default=VOC_ROOT,
                     help='Dataset root directory path')
 parser.add_argument('--cuda', default=True, type=bool,
                     help='Use CUDA to train model')
-parser.add_argument('--min_batch_size', default=32, type=int,
+parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
+parser.add_argument('--cache_pth', default='bounding_boxes_cache.pth',
+                    help='cache for truths of given dataset')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
@@ -54,13 +56,17 @@ def train():
     all_prior_boxes = init_boxes.unsqueeze(1).repeat(1, 2, 1).view(-1, 4)
     locs = all_prior_boxes[:, 0:2]
     params = torch.tensor([[h, w, 0.] for cx, cy, h, w in all_prior_boxes], requires_grad=True)
+    with torch.no_grad():
+        rd_init = 1. + 0.2 * (torch.rand(params.size(0), 2) - 0.5)
+        params[:, :2] *= rd_init
 
     # create data loader
-    data_loader = BoundingBoxesLoader(dataset, args.batch_size, shuffle=True, drop_last=True)
+    data_loader = BoundingBoxesLoader(dataset, labels_of_interest, args.batch_size, shuffle=True,
+                                      drop_last=True, cache_pth=args.cache_pth)
     b_iter = iter(data_loader)
 
     # create optimizer
-    optimizer = optim.SGD(params, lr=args.lr, momentum=args.momentum,
+    optimizer = optim.SGD([params], lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
 
     # create loss function
@@ -75,12 +81,14 @@ def train():
             truths = next(b_iter)
 
         optimizer.zero_grad()
-        loss = loss_fn(locs, params, truths)
+        loss = loss_fn(locs, params, truths.float().cuda())
         loss.backward()
         optimizer.step()
 
         if iteration % 10 == 0:
             print('iter %d: loss=%.4f' % (iteration, loss.item()))
+
+    torch.save(params, 'params.pth')
 
 
 if __name__ == '__main__':

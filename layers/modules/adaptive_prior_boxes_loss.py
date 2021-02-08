@@ -10,8 +10,8 @@ class AdaptivePriorBoxesLoss(nn.Module):
         self.beta = beta
 
     def forward(self, locs: torch.Tensor, params: torch.Tensor, truths):
-        sigmoid_alphas = F.sigmoid(params[:, -1])  # size [num_priors]
-        priors = torch.cat([locs, params], dim=1)  # size [num_priors, 4]
+        sigmoid_alphas = params[:, -1].sigmoid()          # size [num_priors]
+        priors = torch.cat([locs, params[:, :2]], dim=1)  # size [num_priors, 4]
         overlaps = jaccard(
             truths,
             point_form(priors)

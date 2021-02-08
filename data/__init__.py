@@ -22,8 +22,19 @@ def detection_collate(batch):
     imgs = []
     for sample in batch:
         imgs.append(sample[0])
+        targets.append(torch.FloatTensor(sample[1]))
+    return torch.stack(imgs, 0), targets
+
+
+# the same as the upper one. directly use gpu if cuda is enabled.
+def detection_collate_cuda(batch):
+    targets = []
+    imgs = []
+    for sample in batch:
+        imgs.append(sample[0])
         targets.append(torch.tensor(sample[1]))
     return torch.stack(imgs, 0), targets
+
 
 
 def base_transform(image, size, mean):
