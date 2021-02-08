@@ -8,25 +8,28 @@ from __future__ import print_function
 import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
+from data.config import *
 from torch.autograd import Variable
 from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTransform
 from data import HELMET_CLASSES
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
-from ssd_small import build_small_ssd
+from ssd_small import build_small_ssd, build_mobilenet_ssd, build_mobilenet_v2_ssd
 import sys
 import os
 import time
 import argparse
 import numpy as np
 import pickle
+from data.coco18 import COCO_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
 import cv2
 
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
     import xml.etree.ElementTree as ET
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 
 
 def str2bool(v):
@@ -34,28 +37,41 @@ def str2bool(v):
 
 
 parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'helmet'],
+    description='Detection Network Evaluation')
+parser.add_argument('--dataset', default='helmet', choices=['VOC', 'VOC-v2', 'VOC07', 'COCO', 'helmet'],
                     type=str, help='VOC or COCO')
+parser.add_argument('--sname', default='det_net', choices=['det_net', 'mobi_ssd', 'mobi_v2_ssd'])
 parser.add_argument('--trained_model',
                     default='weights/det_net_VOC.pth', type=str,
                     help='Trained state_dict file path to open')
 parser.add_argument('--save_folder', default='eval/', type=str,
                     help='File path to save results')
+parser.add_argument('--dataset_root', default=None,
+                    help='Dataset root directory path')
 parser.add_argument('--confidence_threshold', default=0.01, type=float,
                     help='Detection confidence threshold')
 parser.add_argument('--top_k', default=5, type=int,
                     help='Further restrict the number of predictions to parse')
 parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use cuda to train model')
+parser.add_argument('--half', default=False, type=str2bool,
+                    help='Use half-precision')
 # parser.add_argument('--voc_root', default=VOC_ROOT,
 #                     help='Location of VOC root directory')
 # parser.add_argument('--test_root', default=HELMET_ROOT,
 #                     help='Location of VOC root directory')
 parser.add_argument('--write_imgs', default=False, type=str2bool,
                     help='write results')
+parser.add_argument('--set_type', default=None,
+                    help='Name of the test list')
 parser.add_argument('--cleanup', default=True, type=str2bool,
                     help='Cleanup and remove results files following eval')
+parser.add_argument('--load_dets', default=False, type=str2bool,
+                    help='load existing detections')
+parser.add_argument('--save_dets', default=False, type=str2bool,
+                    help='generate and save detections')
+parser.add_argument('--output_mAP', default=True, type=str2bool,
+                    help='calculate and output the results of AP to Console')
 
 args = parser.parse_args()
 
@@ -74,25 +90,55 @@ else:
 
 if args.dataset == 'helmet':
     labelmap = HELMET_CLASSES
-    root = HELMET_ROOT
+    root = HELMET_ROOT if args.dataset_root is None else args.dataset_root
     annopath = os.path.join(root, 'scenario3-share', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'scenario3-share', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets',
                               'Main', '{:s}.txt')
+
+elif args.dataset == 'COCO':
+    labelmap = COCO_CLASSES
+    root = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+    annopath = os.path.join(root, 'coco18', 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
+    devkit_path = root + 'coco18'
+    set_type = 'test' if args.set_type is None else args.set_type
+
 elif args.dataset == 'VOC':
     labelmap = VOC_CLASSES
-    root = VOC_ROOT
+    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
     annopath = os.path.join(root, 'VOC2007', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'VOC2007', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
+    YEAR = '2007'
+    devkit_path = root + 'VOC' + YEAR
+    set_type = 'test' if args.set_type is None else args.set_type
+
+elif args.dataset == 'VOC-v2':
+    labelmap = VOC_CLASSES
+    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
+    annopath = os.path.join(root, 'VOC2012', 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 'VOC2012', 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 'VOC2012', 'ImageSets', 'Main') + '/{:s}.txt'
+    YEAR = '2012'
+    devkit_path = root + 'VOC' + YEAR
+    set_type = 'test4952' if args.set_type is None else args.set_type
+
+elif args.dataset == 'VOC07':
+    labelmap = VOC_CLASSES
+    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
+    annopath = os.path.join(root, 'VOC2007', 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 'VOC2007', 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
+    YEAR = '2007'
+    devkit_path = root + 'VOC' + YEAR
+    set_type = 'test' if args.set_type is None else args.set_type
 
 else:
     raise NotImplementedError()
 
-YEAR = '2007'
-devkit_path = root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
-set_type = 'test'
 
 
 class Timer(object):
@@ -128,7 +174,8 @@ def parse_rec(filename):
         obj_struct = {}
         obj_struct['name'] = obj.find('name').text
         obj_struct['pose'] = obj.find('pose').text
-        obj_struct['truncated'] = int(obj.find('truncated').text)
+        tmp = obj.find('truncated')
+        obj_struct['truncated'] = int(tmp.text) if tmp is not None else None
         obj_struct['difficult'] = int(obj.find('difficult').text)
         bbox = obj.find('bndbox')
         obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1,
@@ -204,6 +251,10 @@ def do_python_eval(output_dir='output', use_07=True):
     print('{:.3f}'.format(np.mean(aps)))
     print('~~~~~~~~')
     print('')
+    cachefile = os.path.join(cachedir, 'annots.pkl')
+    if os.path.exists(cachefile):
+        print('removing cache')
+        os.remove(cachefile)
     print('--------------------------------------------------------------')
     print('Results computed with the **unofficial** Python eval code.')
     print('Results should be very close to the official MATLAB eval code.')
@@ -305,7 +356,7 @@ cachedir: Directory for caching the annotations
     class_recs = {}
     npos = 0
     for imagename in imagenames:
-        R = [obj for obj in recs[imagename] if obj['name'] == classname]
+        R = [obj for obj in recs[imagename] if obj['name'].replace(' ', '') == classname]
         bbox = np.array([x['bbox'] for x in R])
         difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
@@ -395,51 +446,63 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     output_dir = get_output_dir('ssd300_120000', set_type)
-    det_file = os.path.join(output_dir, 'detections.pkl')
+    det_file = os.path.join(output_dir, 'small_detections.pkl')
+    res_lst = {}
+    if not args.load_dets:
+        for i in range(num_images):
+            im, gt, h, w = dataset.pull_item(i)
 
-    for i in range(num_images):
-        im, gt, h, w = dataset.pull_item(i)
+            x = im.unsqueeze(0)
+            if args.cuda:
+                x = x.cuda()
+            if args.half:
+                x = x.half()
+            _t['im_detect'].tic()
+            with torch.no_grad():
+                detections = net(x)
+            # get_conf_gt(detections, h, w, annopath % dataset.ids[i][1],
+            #             cls_to_ind=dataset.target_transform.class_to_ind)
+            if args.save_dets:
+                res_lst[dataset.ids[i][1]] = detections[0].cpu()
+                print('%s saved' % dataset.ids[i][1])
+            if args.write_imgs:
+                _imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
+                _annopath = os.path.join('%s', 'Annotations', '%s.xml')
+                output_detection_result(_imgpath, dataset.ids[i], detections, h, w, classes=labelmap, score_thresh=0.5,
+                                        out_dir='./eval/%s/%s_output_thresh50' % (args.dataset, args.sname),
+                                        annopath=_annopath, show=False)
+            detect_time = _t['im_detect'].toc(average=False)
 
-        x = im.unsqueeze(0)
-        if args.cuda:
-            x = x.cuda()
-        _t['im_detect'].tic()
-        with torch.no_grad():
-            detections = net(x)
-        # get_conf_gt(detections, h, w, annopath % dataset.ids[i][1],
-        #             cls_to_ind=dataset.target_transform.class_to_ind)
-        if args.write_imgs:
-            _imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
-            _annopath = os.path.join('%s', 'Annotations', '%s.xml')
-            output_detection_result(_imgpath, dataset.ids[i], detections, h, w, classes=labelmap, score_thresh=0.25,
-                                    out_dir='./eval/%s/smallnet_output' % args.dataset, annopath=_annopath, show=False)
-        detect_time = _t['im_detect'].toc(average=False)
+            # skip j = 0, because it's the background class
+            if args.output_mAP:
+                for j in range(1, detections.size(1)):
+                    dets = detections[0, j, :]
+                    mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
+                    dets = torch.masked_select(dets, mask).view(-1, 5)
+                    if dets.size(0) == 0:
+                        continue
+                    boxes = dets[:, 1:]
+                    boxes[:, 0] *= w
+                    boxes[:, 2] *= w
+                    boxes[:, 1] *= h
+                    boxes[:, 3] *= h
+                    scores = dets[:, 0].cpu().numpy()
+                    cls_dets = np.hstack((boxes.cpu().numpy(),
+                                          scores[:, np.newaxis])).astype(np.float32,
+                                                                         copy=False)
+                    all_boxes[j][i] = cls_dets
 
-        # skip j = 0, because it's the background class
-        if not args.write_imgs:
-            for j in range(1, detections.size(1)):
-                dets = detections[0, j, :]
-                mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
-                dets = torch.masked_select(dets, mask).view(-1, 5)
-                if dets.size(0) == 0:
-                    continue
-                boxes = dets[:, 1:]
-                boxes[:, 0] *= w
-                boxes[:, 2] *= w
-                boxes[:, 1] *= h
-                boxes[:, 3] *= h
-                scores = dets[:, 0].cpu().numpy()
-                cls_dets = np.hstack((boxes.cpu().numpy(),
-                                      scores[:, np.newaxis])).astype(np.float32,
-                                                                     copy=False)
-                all_boxes[j][i] = cls_dets
-
-        print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1,
-                                                    num_images, detect_time))
-    if args.write_imgs:
-        return
-    with open(det_file, 'wb') as f:
-        pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+            print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1,
+                                                        num_images, detect_time))
+        if args.save_dets:
+            torch.save(res_lst, '%s_detections_%s.pkl' % (args.sname, args.set_type))
+        if not args.output_mAP:
+            return
+        with open(det_file, 'wb') as f:
+            pickle.dump(all_boxes, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        with open(det_file, 'rb') as f:
+            all_boxes = pickle.load(f)
 
     print('Evaluating detections')
     evaluate_detections(all_boxes, output_dir, dataset)
@@ -454,7 +517,12 @@ def evaluate_detections(box_list, output_dir, dataset):
 if __name__ == '__main__':
     # load net
     num_classes = len(labelmap) + 1                      # +1 for background
-    net = build_small_ssd('test', 300, num_classes)            # initialize SSD
+    if args.sname == 'det_net':
+        net = build_small_ssd('test', 300, num_classes)            # initialize SSD
+    elif args.sname == 'mobi_v2_ssd':
+        net = build_mobilenet_v2_ssd('test', 300, num_classes, config_dict[(args.dataset, args.sname)])
+    else:  # mobi_ssd
+        net = build_mobilenet_ssd('test', 300, num_classes)
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
@@ -464,15 +532,29 @@ if __name__ == '__main__':
                                   BaseTransform(300, dataset_mean),
                                   HelmetAnnotationTransform())
     elif args.dataset == 'VOC':
-        dataset = VOCDetection(root, [('2007', 'test')],
+        dataset = VOCDetection(root, [('2007', set_type)],
                                BaseTransform(300, dataset_mean),
                                VOCAnnotationTransform())
+    elif args.dataset == 'VOC-v2':
+        dataset = VOCDetection(root, [('2012', set_type)],
+                               BaseTransform(300, dataset_mean),
+                               VOCAnnotationTransform())
+    elif args.dataset == 'VOC07':
+        dataset = VOCDetection(root, [('2007', set_type)],
+                               BaseTransform(300, dataset_mean),
+                               VOCAnnotationTransform())
+    elif args.dataset == 'COCO':
+        dataset = COCODetection(root, [('18', set_type)],
+                                BaseTransform(300, dataset_mean),
+                                COCOAnnotationTransform())
     else:
         raise NotImplementedError()
 
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
+    if args.half:
+        net.half()
     # evaluation
     test_net(args.save_folder, net, args.cuda, dataset,
              BaseTransform(net.size, dataset_mean), args.top_k, 300,

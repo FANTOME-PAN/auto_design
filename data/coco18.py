@@ -19,8 +19,8 @@ else:
 
 COCO_CLASSES = (  # always index 0
     'horse', 'train', 'motorcycle', 'cat', 'bus',
-    'cow', 'bird', 'chair', 'potted plant', 'bottle',
-    'boat', 'car', 'dining table', 'sheep',
+    'cow', 'bird', 'chair', 'pottedplant', 'bottle',
+    'boat', 'car', 'diningtable', 'sheep',
     'person', 'airplane', 'dog', 'bicycle')
 
 # note: if you used our download scripts, this should be right
@@ -68,7 +68,8 @@ class COCOAnnotationTransform(object):
                 # scale height or width
                 cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
                 bndbox.append(cur_pt)
-            label_idx = self.class_to_ind[name]
+
+            label_idx = self.class_to_ind[name.replace(' ', '')]
             bndbox.append(label_idx)
             res += [bndbox]  # [xmin, ymin, xmax, ymax, label_ind]
             # img_id = target.find('filename').text[:-4]

@@ -2,7 +2,9 @@ from data import *
 from utils.augmentations import SSDAugmentation
 from layers.modules import MultiBoxLoss
 from ssd import build_ssd
-from data.voc0712 import VOC_ROOT, VOCDetection
+from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
+from data.coco18 import COCO_ROOT, COCODetection
+from data.config import coco
 import os
 import sys
 import time
@@ -23,9 +25,9 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
+parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'helmet', 'VOC-v2', 'VOC07'],
                     type=str, help='VOC or COCO')
-parser.add_argument('--dataset_root', default=HELMET_ROOT,
+parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
@@ -74,11 +76,22 @@ if args.visdom:
 
 def train():
     if args.dataset == 'COCO':
-        raise NotImplementedError()
+        cfg = coco
+        rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+        dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
-        # raise NotImplementedError()
         cfg = voc
         dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    elif args.dataset == 'VOC-v2':
+        cfg = voc
+        dataset = VOCDetection(root=VOC_ROOT,
+                               image_sets=[('2007', 'test'), ('2007', 'trainval'), ('2012', 'train6588')],
+                               transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    elif args.dataset == 'VOC07':
+        cfg = voc07
+        dataset = VOCDetection(root=VOC_ROOT,
+                               image_sets=[('2007', 'trainval')],
+                               transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
         cfg = helmet
         dataset = HelmetDetection(root=HELMET_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
@@ -196,7 +209,7 @@ def train():
             update_vis_plot(iteration, loss_l.item(), loss_c.item(),
                             iter_plot, epoch_plot, 'append')
 
-        if iteration != 0 and iteration % 5000 == 0:
+        if iteration != 0 and iteration % 2000 == 0:
             print('Saving state, iter:', iteration)
             torch.save(ssd_net.state_dict(), ('weights/cache/big_net_%s_' % args.dataset) +
                        repr(iteration) + '.pth')

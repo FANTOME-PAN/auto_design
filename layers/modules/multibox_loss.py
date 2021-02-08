@@ -30,7 +30,7 @@ class MultiBoxLoss(nn.Module):
 
     def __init__(self, num_classes, overlap_thresh, prior_for_matching,
                  bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
-                 use_gpu=True, knowledge_distill=False):
+                 use_gpu=True, knowledge_distill=False, use_half=False):
         super(MultiBoxLoss, self).__init__()
         self.use_gpu = use_gpu
         self.num_classes = num_classes
@@ -43,20 +43,9 @@ class MultiBoxLoss(nn.Module):
         self.neg_overlap = neg_overlap
         self.variance = [0.1, 0.2]
         self._enable_distill = knowledge_distill
+        self.use_half = use_half
 
-    def forward(self, predictions, targets, big_ssd_preds=None):
-        """Multibox Loss
-        Args:
-            predictions (tuple): A tuple containing loc preds, conf preds,
-            and prior boxes from SSD net.
-                conf shape: torch.size(batch_size,num_priors,num_classes)
-                loc shape: torch.size(batch_size,num_priors,4)
-                priors shape: torch.size(num_priors,4)
-
-            targets (tensor): Ground truth boxes and labels for a batch,
-                shape: [batch_size,num_objs,5] (last idx is the label).
-
-        """
+    def forward(self, predictions, targets, big_ssd_preds=None, distill_mask=None):
         loc_data, conf_data, priors = predictions
         if self._enable_distill:
             assert big_ssd_preds is not None
@@ -73,6 +62,8 @@ class MultiBoxLoss(nn.Module):
         for idx in range(num):
             truths = targets[idx][:, :-1].data
             labels = targets[idx][:, -1].data
+            if self.use_half:
+                truths = truths.half()
             defaults = priors.data
             match(self.threshold, truths, defaults, self.variance, labels,
                   loc_t, conf_t, idx)
@@ -91,6 +82,7 @@ class MultiBoxLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
         loc_p = loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
+        pos_idx_l = pos_idx
         loss_l = F.smooth_l1_loss(loc_p, loc_t, reduction='sum')
 
         # Compute max conf across batch for hard negative mining
@@ -121,17 +113,23 @@ class MultiBoxLoss(nn.Module):
         loss_l /= N
         loss_c /= N
         if self._enable_distill:
-            _, big_conf_data, _ = big_ssd_preds
+            big_loc_data, big_conf_data, _ = big_ssd_preds
             inv_temperature = 1 / 1.
-            # 大网络和小网络的 prior boxes 数量不同。小网络没有对 38 * 38 的识别。
-            big_conf_data = big_conf_data[:, 38 * 38 * 4:]
+            # 大网络和小网络的 prior boxes 数量不同。vgg-lite小网络没有对 38 * 38 的识别。
+            if distill_mask is not None:
+                big_loc_data = big_loc_data[:, distill_mask]
+                big_conf_data = big_conf_data[:, distill_mask]
             big_conf_p = big_conf_data[chosen_idx].view(-1, self.num_classes)
             y_softmax = F.log_softmax(conf_p * inv_temperature, dim=1)
             y_big_softmax = F.softmax(big_conf_p, dim=1)
-            # same as loss_c
+
+            big_loc_p = big_loc_data[pos_idx_l].view(-1, 4)
+            # same as loss_c and loss_l
             loss_c_distill = -(y_big_softmax * y_softmax).sum(dim=1).sum()
+            loss_l_distill = F.smooth_l1_loss(loc_p, big_loc_p, reduction='sum')
             loss_c_distill /= N
-            return loss_l, loss_c, loss_c_distill
+            loss_l_distill /= N
+            return loss_l, loss_c, loss_c_distill, loss_l_distill
         return loss_l, loss_c
 
 

@@ -139,6 +139,8 @@ class VOCDetection(data.Dataset):
 
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
+            if len(target) == 0:
+                return None, None, height, width
 
         if self.transform is not None:
             target = np.array(target)
