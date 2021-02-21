@@ -1,10 +1,15 @@
 import argparse
+import cv2
 from data import BaseTransform, detection_collate
 from data.bbox_loader import BoundingBoxesLoader
 from data.config import voc
 from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_ROOT
 from layers import PriorBox
+from layers.functions.prior_box import AdaptivePriorBox
+from layers.box_utils import point_form
 from layers.modules.adaptive_prior_boxes_loss import AdaptivePriorBoxesLoss
+from math import sqrt
+import os
 import torch
 from torch import optim
 
@@ -15,6 +20,12 @@ parser.add_argument('--interest', default='car',
                     type=str, help='the names of labels of interest, split by comma')
 parser.add_argument('--beta', default=1., type=float,
                     help='constant that controls the influence of number of prior boxes in the loss function')
+parser.add_argument('--times_var', default=2, type=int,
+                    help='times of variables to the original parameters from which the priors can be generated.')
+parser.add_argument('--random_init', default=0.2, type=float,
+                    help='give a random init value for each variables. This parameter can control '
+                         'the range of random value, based on the original parameters from config.'
+                         'e.g., the range of init value is {k}, if set to 0; [0.8k,1.2k], if set to 0.2.')
 parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=VOC_ROOT,
@@ -25,6 +36,8 @@ parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
 parser.add_argument('--cache_pth', default='bounding_boxes_cache.pth',
                     help='cache for truths of given dataset')
+parser.add_argument('--cache_interval', default=1000, type=int,
+                    help='Batch size for training')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
@@ -51,14 +64,33 @@ labels_of_interest = [label_dict[l] for l in args.interest.split(',')]
 
 
 def train():
-    init_boxes = PriorBox(cfg=config).forward()
-    # double the number of init boxes
-    all_prior_boxes = init_boxes.unsqueeze(1).repeat(1, 2, 1).view(-1, 4)
-    locs = all_prior_boxes[:, 0:2]
-    params = torch.tensor([[h, w, 0.] for cx, cy, h, w in all_prior_boxes], requires_grad=True)
+    # original_boxes = PriorBox(cfg=config).forward()
+    # # double the number of init boxes
+    # init_boxes = original_boxes.unsqueeze(1).repeat(1, 2, 1).view(-1, 4)
+    # locs = all_prior_boxes[:, 0:2]
+    # params = torch.tensor([[h, w, 0.] for cx, cy, h, w in all_prior_boxes], requires_grad=True)
+    priors_generator = AdaptivePriorBox(config, args.times_var)
+    original_priors = []
+    for k, (min_size, max_size) in enumerate(zip(config['min_sizes'], config['max_sizes'])):
+        tmp = torch.zeros(2 + 2 * len(config['aspect_ratios'][k]), 3)
+        tmp[0] = torch.tensor([min_size, min_size, 0.])
+        medium_size = sqrt(min_size * max_size)
+        tmp[1] = torch.tensor([medium_size, medium_size, 0.])
+        for kk, ar in enumerate(config['aspect_ratios'][k]):
+            tmp[2 * kk + 2] = torch.tensor([min_size * ar, min_size / ar, 0.])
+            tmp[2 * kk + 3] = torch.tensor([min_size / ar, min_size * ar, 0.])
+        original_priors += [tmp]
+    # random init
+    params = [t.repeat(args.times_var, 1).clone().detach().requires_grad_(True) for t in original_priors]
     with torch.no_grad():
-        rd_init = 1. + 0.2 * (torch.rand(params.size(0), 2) - 0.5)
-        params[:, :2] *= rd_init
+        for p in params:
+            p /= config['min_dim']
+            rd_init = 1. + args.random_init * (torch.rand(p.size(0), 2) - 0.5)
+            p[:, :2] *= rd_init
+            p.clamp_(max=1, min=0)
+        priors = priors_generator.forward(params)
+        locs = priors[:, :2]
+    alphas = torch.zeros(locs.size(0), requires_grad=True)
 
     # create data loader
     data_loader = BoundingBoxesLoader(dataset, labels_of_interest, args.batch_size, shuffle=True,
@@ -66,7 +98,7 @@ def train():
     b_iter = iter(data_loader)
 
     # create optimizer
-    optimizer = optim.SGD([params], lr=args.lr, momentum=args.momentum,
+    optimizer = optim.SGD(params + [alphas], lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
 
     # create loss function
@@ -81,9 +113,36 @@ def train():
             truths = next(b_iter)
 
         optimizer.zero_grad()
-        loss = loss_fn(locs, params, truths.float().cuda())
+        v = priors_generator.fast_forward(params, alphas)
+        loss = loss_fn(locs, v, truths.float().cuda())
         loss.backward()
         optimizer.step()
+        with torch.no_grad():
+            for p in params:
+                p[:, :-1].clamp_(max=1, min=0)
+
+        if (iteration + 1) % args.cache_interval == 0:
+        # if True:
+            if not os.path.exists('./cache/'):
+                os.mkdir('./cache/')
+            pth = './cache/prior_params_iter%d.pth' % iteration
+            torch.save(params, pth)
+            print('save cache to %s ' % pth)
+            print('layer avg importance: ' + str([alphas[ii: jj].mean().item() for ii, jj in
+                                                 zip(priors_generator.intervals[:-1], priors_generator.intervals[1:])]))
+            means = []
+            for k, (start, end) in enumerate(zip(priors_generator.intervals[:-1], priors_generator.intervals[1:])):
+                al = alphas[start:end].clone().detach()
+                al = al.view(-1, params[k].size(0))
+                means += [al.mean(dim=0)]
+            means = torch.cat(means)
+            _, ids = means.sort(descending=True)
+            tp = [p.clone().detach() for p in params]
+            for k, p in enumerate(tp):
+                p[:, -1] = k + 1
+            tp = torch.cat(tp)[ids]
+            print('top 20 priors: %s' % '; '.join(['L%d-(%.4f, %.4f)' %
+                                                   (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:20]]))
 
         if iteration % 10 == 0:
             print('iter %d: loss=%.4f' % (iteration, loss.item()))
@@ -91,7 +150,37 @@ def train():
     torch.save(params, 'params.pth')
 
 
+def show_priors(background_pth, locs, params, thresh, name='prior boxes', show=True):
+    img = cv2.imread(background_pth)
+    img = cv2.resize(img, (800, 800))
+    color_red = (0, 0, 255)
+    params = params.detach()
+    _, idx_lst = params[:, -1].sort(descending=True)
+    idx_lst = idx_lst[:thresh]
+    priors = torch.cat([locs[idx_lst], params[idx_lst][:, :2]], dim=1)
+    priors = point_form(priors)
+    priors *= 800.
+    for xx1, yy1, xx2, yy2 in priors:
+        cv2.rectangle(img, (xx1, yy1), (xx2, yy2), color_red, thickness=1)
+
+    if show:
+        cv2.imshow(name, img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    cv2.imwrite('%s.jpg' % name, img)
+    pass
+
+
 if __name__ == '__main__':
+    # pth = r'E:\hwhit aiot project\auto_design\data\VOCdevkit\VOC2007\JPEGImages\000241.jpg'
+    # init_boxes = PriorBox(cfg=config).forward()
+    # # double the number of init boxes
+    # all_prior_boxes = init_boxes.unsqueeze(1).repeat(1, 2, 1).view(-1, 4)
+    # locs = all_prior_boxes[:, 0:2]
+    # params = torch.load('params-3.598.pth')
+    # show_lst = [5, 10, 25, 50, 90, 200]
+    # for th in show_lst:
+    #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
     train()
 
 
