@@ -196,8 +196,8 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    # train()
-    gen_priors(torch.load('params-beta=0.50.pth'))
+    train()
+    # gen_priors(torch.load('params-beta=0.50.pth'))
 
 
 writer.close()
