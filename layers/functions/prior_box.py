@@ -59,7 +59,7 @@ class AdaptivePriorBox(object):
     """Compute priorbox coordinates in center-offset form for each source
     feature map.
     """
-    def __init__(self, cfg, times_var):
+    def __init__(self, cfg, times_var=1, phase='train'):
         super(AdaptivePriorBox, self).__init__()
         self.image_size = cfg['min_dim']
         # number of priors for feature map location (either 4 or 6)
@@ -72,7 +72,9 @@ class AdaptivePriorBox(object):
         self.aspect_ratios = cfg['aspect_ratios']
         self.clip = cfg['clip']
         self.version = cfg['name']
-        self.intervals = [0] + [k * k * (2 + 2 * len(o)) * times_var for k, o in zip(self.feature_maps, self.aspect_ratios)]
+        self.intervals = [0] + [k * k * (2 + 2 * len(o)) * times_var
+                                for k, o in zip(self.feature_maps, self.aspect_ratios)]
+        self.phase = phase
         for k in range(len(self.intervals) - 1):
             self.intervals[k + 1] += self.intervals[k]
         for v in self.variance:
@@ -80,8 +82,10 @@ class AdaptivePriorBox(object):
                 raise ValueError('Variances must be greater than 0')
 
     # params is the list of tensors, the length of the list must be equal to the number of feature maps.
-    # each tensor in params is [N, 3] in size, N is the number of priors, 3 refers to height, width and alpha value.
-    def forward(self, params, requires_grad=True):
+    # each tensor in params is [N, 3] in size, N is the number of types of priors,
+    # 3 refers to height, width and alpha value.
+    # when in test phase, params is [N, 2] in size, just without the alpha value in train phase.
+    def forward(self, params):
         mean = []
         for k, f in enumerate(self.feature_maps):
             for i, j in product(range(f), repeat=2):
@@ -89,12 +93,18 @@ class AdaptivePriorBox(object):
                 # unit center x,y
                 cx = (j + 0.5) / f_k
                 cy = (i + 0.5) / f_k
-
-                for p in params[k]:
-                    tmp = torch.zeros(5)
-                    tmp[0], tmp[1] = cx, cy
-                    tmp[2:] = p
-                    mean += [tmp]
+                if self.phase == 'train':
+                    for p in params[k]:
+                        tmp = torch.zeros(5)
+                        tmp[0], tmp[1] = cx, cy
+                        tmp[2:] = p
+                        mean += [tmp]
+                elif self.phase == 'test':
+                    for p in params[k]:
+                        tmp = torch.zeros(4)
+                        tmp[0], tmp[1] = cx, cy
+                        tmp[2:] = p
+                        mean += [tmp]
         # back to torch land
         output = torch.stack(mean)
         if self.clip:

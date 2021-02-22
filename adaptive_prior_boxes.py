@@ -10,6 +10,7 @@ from layers.box_utils import point_form
 from layers.modules.adaptive_prior_boxes_loss import AdaptivePriorBoxesLoss
 from math import sqrt
 import os
+from tensorboardX import SummaryWriter
 import torch
 from torch import optim
 
@@ -36,6 +37,8 @@ parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
 parser.add_argument('--cache_pth', default='bounding_boxes_cache.pth',
                     help='cache for truths of given dataset')
+parser.add_argument('--save_pth', default='params.pth',
+                    help='save path')
 parser.add_argument('--cache_interval', default=1000, type=int,
                     help='Batch size for training')
 parser.add_argument('--num_workers', default=4, type=int,
@@ -47,6 +50,8 @@ parser.add_argument('--momentum', default=0.9, type=float,
 parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
 args = parser.parse_args()
+
+writer = SummaryWriter('runs/adaptive_priors_loss')
 
 if args.cuda:
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -105,7 +110,7 @@ def train():
     loss_fn = AdaptivePriorBoxesLoss(args.beta)
 
     # train
-    for iteration in range(100000):
+    for iteration in range(25000):
         try:
             truths = next(b_iter)
         except StopIteration:
@@ -120,34 +125,35 @@ def train():
         with torch.no_grad():
             for p in params:
                 p[:, :-1].clamp_(max=1, min=0)
-
+        writer.add_scalar('beta=%.2f' % args.beta, loss.item(), iteration + 1)
         if (iteration + 1) % args.cache_interval == 0:
-        # if True:
+            means = prior_avg_importance(params, priors_generator, alphas)
+            with torch.no_grad():
+                for k, p in enumerate(params):
+                    p[:, -1] = means[k]
             if not os.path.exists('./cache/'):
                 os.mkdir('./cache/')
-            pth = './cache/prior_params_iter%d.pth' % iteration
-            torch.save(params, pth)
+            pth = './cache/%s_iter%d.pth' % (args.save_pth, iteration)
+            torch.save((params, alphas), pth)
             print('save cache to %s ' % pth)
-            print('layer avg importance: ' + str([alphas[ii: jj].mean().item() for ii, jj in
-                                                 zip(priors_generator.intervals[:-1], priors_generator.intervals[1:])]))
-            means = []
-            for k, (start, end) in enumerate(zip(priors_generator.intervals[:-1], priors_generator.intervals[1:])):
-                al = alphas[start:end].clone().detach()
-                al = al.view(-1, params[k].size(0))
-                means += [al.mean(dim=0)]
-            means = torch.cat(means)
-            _, ids = means.sort(descending=True)
+            layer_avg = [o.mean().item() for o in means]
+            print('layer avg importance (normalized): ' +
+                  str([p / sum(layer_avg) for p in layer_avg]))
+            _, ids = torch.cat(means).sort(descending=True)
             tp = [p.clone().detach() for p in params]
             for k, p in enumerate(tp):
                 p[:, -1] = k + 1
             tp = torch.cat(tp)[ids]
-            print('top 20 priors: %s' % '; '.join(['L%d-(%.4f, %.4f)' %
-                                                   (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:20]]))
+            print('top 50 priors: \n%s' % '\n'.join(['L%d-(%.4f, %.4f)' %
+                                                    (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:50]]))
 
         if iteration % 10 == 0:
             print('iter %d: loss=%.4f' % (iteration, loss.item()))
-
-    torch.save(params, 'params.pth')
+    means = prior_avg_importance(params, priors_generator, alphas)
+    with torch.no_grad():
+        for k, p in enumerate(params):
+            p[:, -1] = means[k]
+    torch.save([p.detach().cpu() for p in params], args.save_pth)
 
 
 def show_priors(background_pth, locs, params, thresh, name='prior boxes', show=True):
@@ -171,6 +177,15 @@ def show_priors(background_pth, locs, params, thresh, name='prior boxes', show=T
     pass
 
 
+def prior_avg_importance(params, priors_gen, alphas):
+    means = []
+    for k, (start, end) in enumerate(zip(priors_gen.intervals[:-1], priors_gen.intervals[1:])):
+        al = alphas[start:end].clone().detach()
+        al = al.view(-1, params[k].size(0))
+        means += [al.mean(dim=0)]
+    return means
+
+
 if __name__ == '__main__':
     # pth = r'E:\hwhit aiot project\auto_design\data\VOCdevkit\VOC2007\JPEGImages\000241.jpg'
     # init_boxes = PriorBox(cfg=config).forward()
@@ -181,6 +196,10 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    train()
+    # train()
+    gen_priors(torch.load('params-beta=0.50.pth'))
+
+
+writer.close()
 
 

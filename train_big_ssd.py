@@ -1,10 +1,11 @@
+import argparse
 from data import *
-from utils.augmentations import SSDAugmentation
-from layers.modules import MultiBoxLoss
 from ssd import build_ssd
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
 from data.coco18 import COCO_ROOT, COCODetection
 from data.config import coco
+from layers.functions.prior_box import AdaptivePriorBox
+from layers.modules import MultiBoxLoss
 import os
 import sys
 import time
@@ -14,8 +15,8 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import torch.nn.init as init
 import torch.utils.data as data
-import numpy as np
-import argparse
+from utils.augmentations import SSDAugmentation
+from utils.adaptive_bbox_utils import gen_priors
 
 
 def str2bool(v):
@@ -25,9 +26,9 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'helmet', 'VOC-v2', 'VOC07'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet', 'VOC-v2', 'VOC07'],
                     type=str, help='VOC or COCO')
-parser.add_argument('--dataset_root', default=None,
+parser.add_argument('--dataset_root', default=VOC_ROOT,
                     help='Dataset root directory path')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
@@ -53,6 +54,12 @@ parser.add_argument('--visdom', default=False, type=str2bool,
                     help='Use visdom for loss visualization')
 parser.add_argument('--save_folder', default='weights/',
                     help='Directory for saving checkpoint models')
+parser.add_argument('--custom_priors', default=None,
+                    help='custom priors for the model')
+parser.add_argument('--prior_types', default=32, type=int,
+                    help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
+parser.add_argument('--save_name', default=None,
+                    help='custom name for the trained model')
 args = parser.parse_args()
 
 
@@ -97,8 +104,16 @@ def train():
         dataset = HelmetDetection(root=HELMET_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     else:
         raise RuntimeError()
+    if args.custom_priors is not None:
+        params = torch.load(args.custom_priors)
+        bbox = gen_priors(params, args.prior_types, cfg)
+        gen = AdaptivePriorBox(cfg, phase='test')
+        custom_priors = gen.forward(bbox)
+        custom_mbox = [p.size(0) for p in bbox]
 
-    ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
+        ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'], custom_mbox, custom_priors)
+    else:
+        ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
     net = ssd_net
 
     if args.cuda:
@@ -213,8 +228,9 @@ def train():
             print('Saving state, iter:', iteration)
             torch.save(ssd_net.state_dict(), ('weights/cache/big_net_%s_' % args.dataset) +
                        repr(iteration) + '.pth')
+    name = 'big_net_' + args.dataset if args.save_name is None else args.save_name
     torch.save(ssd_net.state_dict(),
-               args.save_folder + 'big_net_' + args.dataset + '.pth')
+               args.save_folder + name + '.pth')
 
 
 def adjust_learning_rate(optimizer, gamma, step):

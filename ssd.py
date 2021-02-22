@@ -24,13 +24,16 @@ class SSD(nn.Module):
         head: "multibox head" consists of loc and conf conv layers
     """
 
-    def __init__(self, phase, size, base, extras, head, num_classes, cfg=helmet):
+    def __init__(self, phase, size, base, extras, head, num_classes, cfg=helmet, priors=None):
         super(SSD, self).__init__()
         self.phase = phase
         self.num_classes = num_classes
         self.cfg = cfg
-        self.priorbox = PriorBox(self.cfg)
-        self.priors = self.priorbox.forward()
+        if priors is None:
+            self.priorbox = PriorBox(self.cfg)
+            self.priors = self.priorbox.forward()
+        else:
+            self.priors = priors
         self.size = size
 
         # SSD network
@@ -203,7 +206,7 @@ mbox = {
 }
 
 
-def build_ssd(phase, size=300, num_classes=21):
+def build_ssd(phase, size=300, num_classes=21, custom_mbox=None, custom_priors=None):
     if phase != "test" and phase != "train":
         print("ERROR: Phase: " + phase + " not recognized")
         return
@@ -213,5 +216,5 @@ def build_ssd(phase, size=300, num_classes=21):
         return
     base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
                                      add_extras(extras[str(size)], 1024),
-                                     mbox[str(size)], num_classes)
-    return SSD(phase, size, base_, extras_, head_, num_classes)
+                                     mbox[str(size)] if custom_mbox is None else custom_mbox, num_classes)
+    return SSD(phase, size, base_, extras_, head_, num_classes, custom_priors)
