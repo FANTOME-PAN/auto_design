@@ -13,9 +13,11 @@ from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTr
 from data import HELMET_CLASSES
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
 from data.coco18 import COCO_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
-from data.config import coco
+from data.config import config_dict
+from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
+from utils.adaptive_bbox_utils import gen_priors
 from ssd import build_ssd
 
 import sys
@@ -70,6 +72,10 @@ parser.add_argument('--save_dets', default=False, type=str2bool,
                     help='generate and save detections')
 parser.add_argument('--output_mAP', default=True, type=str2bool,
                     help='calculate and output the results of AP to Console')
+parser.add_argument('--custom_priors', default=None,
+                    help='custom priors for the model')
+parser.add_argument('--prior_types', default=32, type=int,
+                    help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
 
 
 args = parser.parse_args()
@@ -96,7 +102,6 @@ if args.dataset == 'helmet':
 elif args.dataset == 'COCO':
     labelmap = COCO_CLASSES
     root = args.dataset_root if args.dataset_root is not None else COCO_ROOT
-    cfg = coco
     annopath = os.path.join(root, 'coco18', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
@@ -525,7 +530,18 @@ def evaluate_detections(box_list, output_dir, dataset):
 if __name__ == '__main__':
     # load net
     num_classes = len(labelmap) + 1                      # +1 for background
-    net = build_ssd('test', 300, num_classes)            # initialize SSD
+    if args.custom_priors is not None:
+        cfg = config_dict[(args.dataset, 'ssd300')]
+        params = torch.load(args.custom_priors)
+        bbox = gen_priors(params, args.prior_types, cfg)
+        gen = AdaptivePriorBox(cfg, phase='test')
+        custom_priors = gen.forward(bbox)
+        custom_mbox = [p.size(0) for p in bbox]
+        if args.cuda:
+            custom_priors = custom_priors.cuda()
+        net = build_ssd('test', 300, num_classes, custom_mbox, custom_priors)
+    else:
+        net = build_ssd('test', 300, num_classes)            # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')

@@ -200,6 +200,11 @@ config_dict = {
     ('VOC', 'mobi_v2_ssd'): voc_mobi_v2,
     ('VOC-v2', 'mobi_v2_ssd'): voc_mobi_v2,
     ('COCO', 'mobi_v2_ssd'): coco_mobi_v2,
+
+    ('VOC07', 'ssd300'): voc07,
+    ('VOC', 'ssd300'): voc,
+    ('VOC-v2', 'ssd300'): voc,
+    ('COCO', 'ssd300'): coco,
 }
 #
 

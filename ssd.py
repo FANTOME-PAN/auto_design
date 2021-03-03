@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from layers import *
 from data import helmet
+from data.config import voc
 import os
 
 
@@ -24,7 +25,7 @@ class SSD(nn.Module):
         head: "multibox head" consists of loc and conf conv layers
     """
 
-    def __init__(self, phase, size, base, extras, head, num_classes, cfg=helmet, priors=None):
+    def __init__(self, phase, size, base, extras, head, num_classes, cfg=voc, priors=None):
         super(SSD, self).__init__()
         self.phase = phase
         self.num_classes = num_classes
@@ -217,4 +218,4 @@ def build_ssd(phase, size=300, num_classes=21, custom_mbox=None, custom_priors=N
     base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
                                      add_extras(extras[str(size)], 1024),
                                      mbox[str(size)] if custom_mbox is None else custom_mbox, num_classes)
-    return SSD(phase, size, base_, extras_, head_, num_classes, custom_priors)
+    return SSD(phase, size, base_, extras_, head_, num_classes, priors=custom_priors)

@@ -1,6 +1,7 @@
 .idea/
 weights/
 data/VOCdevkit/*
+runs/*
 *.pyc
 *.jpg
 *.pkl

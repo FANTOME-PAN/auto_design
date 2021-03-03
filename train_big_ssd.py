@@ -58,7 +58,7 @@ parser.add_argument('--custom_priors', default=None,
                     help='custom priors for the model')
 parser.add_argument('--prior_types', default=32, type=int,
                     help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
-parser.add_argument('--save_name', default=None,
+parser.add_argument('--save_name', default='big_net',
                     help='custom name for the trained model')
 args = parser.parse_args()
 
@@ -110,7 +110,8 @@ def train():
         gen = AdaptivePriorBox(cfg, phase='test')
         custom_priors = gen.forward(bbox)
         custom_mbox = [p.size(0) for p in bbox]
-
+        if args.cuda:
+            custom_priors = custom_priors.cuda()
         ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'], custom_mbox, custom_priors)
     else:
         ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
@@ -226,9 +227,9 @@ def train():
 
         if iteration != 0 and iteration % 2000 == 0:
             print('Saving state, iter:', iteration)
-            torch.save(ssd_net.state_dict(), ('weights/cache/big_net_%s_' % args.dataset) +
+            torch.save(ssd_net.state_dict(), ('weights/cache/%s_%s_' % (args.save_name, args.dataset)) +
                        repr(iteration) + '.pth')
-    name = 'big_net_' + args.dataset if args.save_name is None else args.save_name
+    name = '%s_%s' % (args.save_name, args.dataset)
     torch.save(ssd_net.state_dict(),
                args.save_folder + name + '.pth')
 
