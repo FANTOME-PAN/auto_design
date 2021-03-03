@@ -49,6 +49,8 @@ parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
 parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
+parser.add_argument('--log', default=True, type=bool,
+                    help='log output loss')
 args = parser.parse_args()
 
 writer = SummaryWriter('runs/adaptive_priors_loss')
