@@ -28,7 +28,8 @@ def trim(params, iou_thresh=0.8):
 def gen_priors(params, num_types=32, cfg=voc):
     params = trim(params, iou_thresh=0.9)
     means = [p[:, -1].mean().item() for p in params]
-    weights = [m / sum(means) for m in means]
+    weights = torch.tensor(means).softmax(dim=0).tolist()
+    # weights = [m / sum(means) for m in means]
     nums = [min(int(round(w * num_types)), params[k].size(0)) for k, w in enumerate(weights)]
     print('weights by layer: { %s }' % ', '.join(['%.3f' % w for w in weights]))
     print('types by layer: { %s }' % ', '.join(['%d' % n for n in nums]))

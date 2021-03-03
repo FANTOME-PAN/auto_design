@@ -15,6 +15,20 @@ import torch
 from torch import optim
 
 
+def str2bool(s):
+    ret = {
+        'True': True,
+        '1':    True,
+        'true': True,
+        'T':    True,
+        'False': False,
+        '0':     False,
+        'false': False,
+        'F':     False,
+    }.setdefault(s, False)
+    return ret
+
+
 parser = argparse.ArgumentParser(
     description='Adaptive prior boxes')
 parser.add_argument('--interest', default='car',
@@ -31,7 +45,7 @@ parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=VOC_ROOT,
                     help='Dataset root directory path')
-parser.add_argument('--cuda', default=True, type=bool,
+parser.add_argument('--cuda', default='True', type=str2bool,
                     help='Use CUDA to train model')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
@@ -49,11 +63,12 @@ parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
 parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
-parser.add_argument('--log', default=True, type=bool,
+parser.add_argument('--log', default='True', type=str2bool,
                     help='log output loss')
 args = parser.parse_args()
 
-writer = SummaryWriter('runs/adaptive_priors_loss')
+if args.log:
+    writer = SummaryWriter('runs/adaptive_priors_loss')
 
 if args.cuda:
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -127,7 +142,8 @@ def train():
         with torch.no_grad():
             for p in params:
                 p[:, :-1].clamp_(max=1, min=0)
-        writer.add_scalar('beta=%.2f' % args.beta, loss.item(), iteration + 1)
+        if args.log:
+            writer.add_scalar('beta=%.2f' % args.beta, loss.item(), iteration + 1)
         if (iteration + 1) % args.cache_interval == 0:
             means = prior_avg_importance(params, priors_generator, alphas)
             with torch.no_grad():
@@ -198,10 +214,11 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    train()
-    # gen_priors(torch.load('params-beta=0.50.pth'))
+    # train()
+    from utils.adaptive_bbox_utils import gen_priors
+    gen_priors(torch.load('n-params.pth'))
 
-
-writer.close()
+if args.log:
+    writer.close()
 
 
