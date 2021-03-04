@@ -142,7 +142,7 @@ def train():
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
     criterion = MultiBoxLoss(cfg['num_classes'], 0.5, True, 0, True, 3, 0.5,
-                             False, args.cuda)
+                             False, best_prior_weight=1., use_gpu=args.cuda)
 
     net.train()
     # loss counters
@@ -217,7 +217,7 @@ def train():
         loc_loss += loss_l.item()
         conf_loss += loss_c.item()
 
-        if iteration % 10 == 0:
+        if iteration % 10 == 0 or True:
             print('timer: %.4f sec.' % (t1 - t0))
             print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.item()), end=' ')
 

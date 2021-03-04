@@ -69,7 +69,8 @@ class MultiBoxLoss(nn.Module):
             defaults = priors.data
             pmsk = match(self.threshold, truths, defaults, self.variance, labels, loc_t, conf_t, idx)
             best_priors_msk.append(pmsk)
-        best_priors_msk = torch.stack(best_priors_msk)
+        # best_priors_msk = torch.stack(best_priors_msk)
+        best_priors_msk = torch.zeros(num, num_priors, dtype=torch.uint8)
         if self.use_gpu:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
@@ -88,8 +89,13 @@ class MultiBoxLoss(nn.Module):
         loc_t = loc_t[pos].view(-1, 4)
         pos_idx_l = pos
         msk = best_priors_msk[pos]
-        loss_l = F.smooth_l1_loss(loc_p[~msk], loc_t[~msk], reduction='sum') \
-            + self.bpw * F.smooth_l1_loss(loc_p[msk], loc_t[msk], reduction='sum')
+        t1, t2, t3, t4 = loc_p[~msk], loc_t[~msk], loc_p[msk], loc_t[msk]
+        tt1 = torch.isnan(t1).sum()
+        tt2 = torch.isnan(t2).sum()
+        tt3 = torch.isinf(t1).sum()
+        tt4 = torch.isinf(t2).sum()
+        loss_l = F.smooth_l1_loss(loc_p[~msk], loc_t[~msk], reduction='sum')
+        # loss_l += self.bpw * F.smooth_l1_loss(loc_p[msk], loc_t[msk], reduction='sum')
 
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
@@ -109,11 +115,13 @@ class MultiBoxLoss(nn.Module):
         # pos_idx = pos.unsqueeze(2).expand_as(conf_data)
         # neg_idx = neg.unsqueeze(2).expand_as(conf_data)
         chosen_idx = pos | neg
+        # chosen_idx = pos_idx | neg_idx
         conf_p = conf_data[chosen_idx].view(-1, self.num_classes)
         targets_weighted = conf_t[pos | neg]
         msk = best_priors_msk[pos | neg]
-        loss_c = F.cross_entropy(conf_p[~msk], targets_weighted[~msk], reduction='sum') \
-            + self.bpw * F.cross_entropy(conf_p[msk], targets_weighted[msk], reduction='sum')
+        t1, t2, t3, t4 = conf_p[~msk], targets_weighted[~msk], conf_p[msk], targets_weighted[msk]
+        loss_c = F.cross_entropy(conf_p[~msk], targets_weighted[~msk], reduction='sum')
+        # loss_c += self.bpw * F.cross_entropy(conf_p[msk], targets_weighted[msk], reduction='sum')
 
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
 
