@@ -29,7 +29,7 @@ class MultiBoxLoss(nn.Module):
     """
 
     def __init__(self, num_classes, overlap_thresh, prior_for_matching,
-                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target,
+                 bkg_label, neg_mining, neg_pos, neg_overlap, encode_target, best_prior_weight=5.,
                  use_gpu=True, knowledge_distill=False, use_half=False):
         super(MultiBoxLoss, self).__init__()
         self.use_gpu = use_gpu
@@ -44,6 +44,7 @@ class MultiBoxLoss(nn.Module):
         self.variance = [0.1, 0.2]
         self._enable_distill = knowledge_distill
         self.use_half = use_half
+        self.bpw = best_prior_weight
 
     def forward(self, predictions, targets, big_ssd_preds=None, distill_mask=None):
         loc_data, conf_data, priors = predictions
@@ -59,14 +60,16 @@ class MultiBoxLoss(nn.Module):
         # loc_t = torch.zeros(num, num_priors, 4)
         conf_t = torch.LongTensor(num, num_priors)
         # conf_t = torch.
+        best_priors_msk = []
         for idx in range(num):
             truths = targets[idx][:, :-1].data
             labels = targets[idx][:, -1].data
             if self.use_half:
                 truths = truths.half()
             defaults = priors.data
-            match(self.threshold, truths, defaults, self.variance, labels,
-                  loc_t, conf_t, idx)
+            pmsk = match(self.threshold, truths, defaults, self.variance, labels, loc_t, conf_t, idx)
+            best_priors_msk.append(pmsk)
+        best_priors_msk = torch.stack(best_priors_msk)
         if self.use_gpu:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
@@ -77,13 +80,16 @@ class MultiBoxLoss(nn.Module):
         pos = conf_t > 0
         num_pos = pos.sum(dim=1, keepdim=True)
 
+        assert (pos & best_priors_msk == best_priors_msk).min().item() == 1
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]
-        pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
-        loc_p = loc_data[pos_idx].view(-1, 4)
-        loc_t = loc_t[pos_idx].view(-1, 4)
-        pos_idx_l = pos_idx
-        loss_l = F.smooth_l1_loss(loc_p, loc_t, reduction='sum')
+        # pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
+        loc_p = loc_data[pos].view(-1, 4)
+        loc_t = loc_t[pos].view(-1, 4)
+        pos_idx_l = pos
+        msk = best_priors_msk[pos]
+        loss_l = F.smooth_l1_loss(loc_p[~msk], loc_t[~msk], reduction='sum') \
+            + self.bpw * F.smooth_l1_loss(loc_p[msk], loc_t[msk], reduction='sum')
 
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
@@ -100,16 +106,18 @@ class MultiBoxLoss(nn.Module):
         neg = idx_rank < num_neg.expand_as(idx_rank)
 
         # Confidence Loss Including Positive and Negative Examples
-        pos_idx = pos.unsqueeze(2).expand_as(conf_data)
-        neg_idx = neg.unsqueeze(2).expand_as(conf_data)
-        chosen_idx = pos_idx | neg_idx
+        # pos_idx = pos.unsqueeze(2).expand_as(conf_data)
+        # neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+        chosen_idx = pos | neg
         conf_p = conf_data[chosen_idx].view(-1, self.num_classes)
         targets_weighted = conf_t[pos | neg]
-        loss_c = F.cross_entropy(conf_p, targets_weighted, reduction='sum')
+        msk = best_priors_msk[pos | neg]
+        loss_c = F.cross_entropy(conf_p[~msk], targets_weighted[~msk], reduction='sum') \
+            + self.bpw * F.cross_entropy(conf_p[msk], targets_weighted[msk], reduction='sum')
 
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
 
-        N = num_pos.sum()
+        N = pos.sum() + best_priors_msk.sum() * (self.bpw - 1.)
         loss_l /= N
         loss_c /= N
         if self._enable_distill:
