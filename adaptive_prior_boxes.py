@@ -35,6 +35,10 @@ parser.add_argument('--interest', default='car',
                     type=str, help='the names of labels of interest, split by comma')
 parser.add_argument('--beta', default=1., type=float,
                     help='constant that controls the influence of number of prior boxes in the loss function')
+parser.add_argument('--k', default=2.5, type=float,
+                    help='influence of best priors within the loss value')
+parser.add_argument('--iou_thresh', default=0.4, type=float,
+                    help='threshold of minimum IOU that can be included in the loss function')
 parser.add_argument('--times_var', default=2, type=int,
                     help='times of variables to the original parameters from which the priors can be generated.')
 parser.add_argument('--random_init', default=0.2, type=float,
@@ -124,7 +128,7 @@ def train():
                           weight_decay=args.weight_decay)
 
     # create loss function
-    loss_fn = AdaptivePriorBoxesLoss(args.beta)
+    loss_fn = AdaptivePriorBoxesLoss(args.beta, args.k, args.iou_thresh)
 
     # train
     for iteration in range(25000):
@@ -214,9 +218,9 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    # train()
-    from utils.adaptive_bbox_utils import gen_priors
-    gen_priors(torch.load('n-params.pth'))
+    train()
+    # from utils.adaptive_bbox_utils import gen_priors
+    # gen_priors(torch.load('n-params.pth'))
 
 if args.log:
     writer.close()
