@@ -30,7 +30,7 @@ if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
     import xml.etree.ElementTree as ET
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def str2bool(v):

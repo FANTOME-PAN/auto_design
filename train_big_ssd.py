@@ -17,6 +17,7 @@ import torch.nn.init as init
 import torch.utils.data as data
 from utils.augmentations import SSDAugmentation
 from utils.adaptive_bbox_utils import gen_priors
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,2,3"
 
 
 def str2bool(v):
@@ -118,7 +119,7 @@ def train():
     net = ssd_net
 
     if args.cuda:
-        net = torch.nn.DataParallel(ssd_net)
+        net = torch.nn.DataParallel(ssd_net).cuda()
         cudnn.benchmark = True
 
     if args.resume:
@@ -128,9 +129,6 @@ def train():
         vgg_weights = torch.load(args.save_folder + args.basenet)
         print('Loading base network...')
         ssd_net.vgg.load_state_dict(vgg_weights)
-
-    if args.cuda:
-        net = net.cuda()
 
     if not args.resume:
         print('Initializing weights...')
@@ -142,7 +140,7 @@ def train():
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
     criterion = MultiBoxLoss(cfg['num_classes'], 0.5, True, 0, True, 3, 0.5,
-                             False, args.cuda)
+                             False, best_prior_weight=2.54, use_gpu=args.cuda)
 
     net.train()
     # loss counters

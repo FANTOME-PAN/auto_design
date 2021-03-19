@@ -72,29 +72,35 @@ class SSD(nn.Module):
         sources = list()
         loc = list()
         conf = list()
+        # t = x.nonzero().size(0) / x.numel()
 
         # apply vgg up to conv4_3 relu
         for k in range(23):
             x = self.vgg[k](x)
-
+            # t = x.nonzero().size(0) / x.numel()
         s = self.L2Norm(x)
         sources.append(s)
 
         # apply vgg up to fc7
         for k in range(23, len(self.vgg)):
             x = self.vgg[k](x)
+            # t = x.nonzero().size(0) / x.numel()
         sources.append(x)
 
         # apply extra layers and cache source layer outputs
         for k, v in enumerate(self.extras):
             x = F.relu(v(x), inplace=True)
+            # t = x.nonzero().size(0) / x.numel()
             if k % 2 == 1:
                 sources.append(x)
 
         # apply multibox head to source layers
         for (x, l, c) in zip(sources, self.loc, self.conf):
+            # t = x.nonzero().size(0) / x.numel()
             loc.append(l(x).permute(0, 2, 3, 1).contiguous())
+            # t = loc[-1].nonzero().size(0) / loc[-1].numel()
             conf.append(c(x).permute(0, 2, 3, 1).contiguous())
+            # t = conf[-1].nonzero().size(0) / conf[-1].numel()
 
         loc = torch.cat([o.view(o.size(0), -1) for o in loc], 1)
         conf = torch.cat([o.view(o.size(0), -1) for o in conf], 1)
