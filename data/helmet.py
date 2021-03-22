@@ -13,7 +13,7 @@ else:
 HELMET_CLASSES = (  # always index 0
     'helmet', 'helmet_on', 'helmet_off', 'person')
 
-HELMET_ROOT = osp.join(HOME, "data\\helmet_dataset\\")
+HELMET_ROOT = 'E:\\helmet\\'
 
 
 class HelmetAnnotationTransform(object):
@@ -68,23 +68,8 @@ class HelmetAnnotationTransform(object):
 
 
 class HelmetDetection(data.Dataset):
-    """
-    input is image, target is annotation
-
-    Arguments:
-        root (string): filepath to helmet folder.
-        image_set (string): imageset to use (eg. 'train', 'val', 'test')
-        transform (callable, optional): transformation to perform on the
-            input image
-        target_transform (callable, optional): transformation to perform on the
-            target `annotation`
-            (eg: take in caption string, return tensor of word indices)
-        dataset_name (string, optional): which dataset to load
-            (default: 'VOC2007')
-    """
-
     def __init__(self, root,
-                 image_sets=('scenario1-share', 'scenario2-share'),
+                 image_sets=(('s1', 'train'), ('s2', 'train'), ('s3', 'train')),
                  transform=None, target_transform=HelmetAnnotationTransform(),
                  dataset_name='helmet_detection_dataset'):
         self.root = root
@@ -95,9 +80,9 @@ class HelmetDetection(data.Dataset):
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
         self.ids = list()
-        for name in image_sets:
-            rootpath = osp.join(self.root, name)
-            for line in open(osp.join(self.root, 'Index', name + '.txt')):
+        for (dir, name) in image_sets:
+            rootpath = osp.join(self.root, dir)
+            for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
                 self.ids.append((rootpath, line.strip()))
 
     def __getitem__(self, index):

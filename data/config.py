@@ -190,11 +190,13 @@ config_dict = {
     ('VOC', 'det_net'): voc_lite,
     ('VOC-v2', 'det_net'): voc_lite,
     ('COCO', 'det_net'): coco_lite,
+    ('helmet', 'det_net'): helmet_lite,
 
     ('VOC07', 'mobi_ssd'): voc07_mobi,
     ('VOC', 'mobi_ssd'): voc,
     ('VOC-v2', 'mobi_ssd'): voc,
     ('COCO', 'mobi_ssd'): coco,
+    ('helmet', 'mobi_ssd'): helmet,
 
     ('VOC07', 'mobi_v2_ssd'): voc_mobi_v2,
     ('VOC', 'mobi_v2_ssd'): voc_mobi_v2,
@@ -205,6 +207,7 @@ config_dict = {
     ('VOC', 'ssd300'): voc,
     ('VOC-v2', 'ssd300'): voc,
     ('COCO', 'ssd300'): coco,
+    ('helmet', 'ssd300'): helmet,
 }
 #
 

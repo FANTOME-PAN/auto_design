@@ -102,7 +102,8 @@ def train():
                                transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
         cfg = helmet
-        dataset = HelmetDetection(root=HELMET_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        rt = args.dataset_root if args.dataset_root is not None else HELMET_ROOT
+        dataset = HelmetDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     else:
         raise RuntimeError()
     if args.custom_priors is not None:
