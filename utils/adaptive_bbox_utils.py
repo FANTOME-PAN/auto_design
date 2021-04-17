@@ -25,8 +25,16 @@ def trim(params, iou_thresh=0.8):
     return res
 
 
+# def gen_priors(params, num_types=32, cfg=voc):
+#     params = trim(params, iou_thresh=0.75)
+#     bbox = [p[:, :2] for k, p in enumerate(params)]
+#     return bbox
+
+
 def gen_priors(params, num_types=32, cfg=voc):
-    params = trim(params, iou_thresh=0.9)
+    if isinstance(params, str):
+        params = torch.load(params)
+    params = trim(params, iou_thresh=0.75)
     means = [p[:, -1].mean().item() for p in params]
     weights = torch.tensor(means).softmax(dim=0).tolist()
     # weights = [m / sum(means) for m in means]

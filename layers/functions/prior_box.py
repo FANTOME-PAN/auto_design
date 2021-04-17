@@ -112,14 +112,15 @@ class AdaptivePriorBox(object):
         return output
 
     # do not contains loc.
-    def fast_forward(self, params, alphas, output=None):
+    def fast_forward(self, params, alphas=None, output=None):
         if output is None:
             output = torch.zeros(self.intervals[-1], 3)
         for k, num in enumerate(self.feature_maps):
             p = params[k].unsqueeze(0).expand(num * num, params[k].size(0), 3)
             tp_out = output[self.intervals[k]: self.intervals[k + 1], :].view_as(p)
             tp_out[:] = p
-        output[:, -1] = alphas
+        if alphas is not None:
+            output[:, -1] = alphas
         return output
 
 

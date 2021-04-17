@@ -32,7 +32,6 @@ if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
     import xml.etree.ElementTree as ET
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def str2bool(v):
@@ -76,9 +75,12 @@ parser.add_argument('--custom_priors', default=None,
                     help='custom priors for the model')
 parser.add_argument('--prior_types', default=32, type=int,
                     help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
-
+parser.add_argument('--gpus', default='1',
+                    type=str, help='visible devices for CUDA')
 
 args = parser.parse_args()
+
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
