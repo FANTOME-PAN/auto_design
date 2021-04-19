@@ -30,7 +30,7 @@ annopath = osp.join('%s', 'Annotations', '%s.xml')
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='helmet', choices=['VOC', 'VOC-v2', 'VOC07', 'COCO', 'helmet'],
+parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
@@ -83,31 +83,27 @@ else:
 
 def train():
     cfg = config_dict.setdefault((args.dataset, args.sname), None)
+    bignet_cfg = config_dict.setdefault((args.dataset, 'ssd300'), None)
     if cfg is None:
         raise RuntimeError("No matched config for model %s on dataset %s" % (args.sname, args.dataset))
     if args.dataset == 'COCO':
-        bignet_cfg = coco
         rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         rt = VOC_ROOT if args.dataset_root is None else args.dataset_root
-        bignet_cfg = voc
         dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC-v2':
         rt = VOC_ROOT if args.dataset_root is None else args.dataset_root
-        bignet_cfg = voc
         dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS),
                                image_sets=[('2007', 'test'), ('2007', 'trainval'), ('2012', 'train6588')])
     elif args.dataset == 'VOC07':
         rt = VOC_ROOT if args.dataset_root is None else args.dataset_root
-        bignet_cfg = voc07
         dataset = VOCDetection(root=rt,
                                image_sets=[('2007', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
-        cfg = helmet_lite
-        bignet_cfg = helmet
-        dataset = HelmetDetection(root=HELMET_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        rt = args.dataset_root if args.dataset_root is not None else HELMET_ROOT
+        dataset = HelmetDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     else:
         raise RuntimeError()
     distill_msk = None

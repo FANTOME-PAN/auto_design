@@ -27,7 +27,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet', 'VOC-v2', 'VOC07'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=VOC_ROOT,
                     help='Dataset root directory path')
@@ -85,17 +85,8 @@ def train():
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         cfg = voc
-        dataset = VOCDetection(root=VOC_ROOT, transform=SSDAugmentation(cfg['min_dim'], MEANS))
-    elif args.dataset == 'VOC-v2':
-        cfg = voc
-        dataset = VOCDetection(root=VOC_ROOT,
-                               image_sets=[('2007', 'test'), ('2007', 'trainval'), ('2012', 'train6588')],
-                               transform=SSDAugmentation(cfg['min_dim'], MEANS))
-    elif args.dataset == 'VOC07':
-        cfg = voc07
-        dataset = VOCDetection(root=VOC_ROOT,
-                               image_sets=[('2007', 'trainval')],
-                               transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        rt = args.dataset_root if args.dataset_root is not None else VOC_ROOT
+        dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
         cfg = helmet
         rt = args.dataset_root if args.dataset_root is not None else HELMET_ROOT

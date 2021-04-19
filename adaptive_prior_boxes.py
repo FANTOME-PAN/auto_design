@@ -2,7 +2,9 @@ import argparse
 import cv2
 from data import BaseTransform, detection_collate
 from data.bbox_loader import BoundingBoxesLoader
-from data.config import voc
+from data.coco18 import COCOAnnotationTransform, COCODetection, COCO_CLASSES, COCO_ROOT
+from data.config import voc, coco, helmet
+from data.helmet import HelmetAnnotationTransform, HelmetDetection, HELMET_CLASSES, HELMET_ROOT
 from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_ROOT
 from layers import PriorBox
 from layers.box_utils import jaccard, point_form
@@ -50,7 +52,7 @@ parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'
                     type=str, help='VOC or COCO')
 parser.add_argument('--mode', default='train', choices=['train', 'test', 'compare'],
                     type=str, help='')
-parser.add_argument('--dataset_root', default=VOC_ROOT,
+parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
 parser.add_argument('--cuda', default='True', type=str2bool,
                     help='Use CUDA to train model')
@@ -78,7 +80,7 @@ parser.add_argument('--gpus', default='1',
                     type=str, help='visible devices for CUDA')
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
-if args.log:
+if args.log and args.mode == 'train':
     from datetime import datetime
     writer = SummaryWriter('runs/adaptive_priors_loss/%s/' % datetime.now().strftime("%Y%m%d-%H%M%S"))
 
@@ -87,10 +89,19 @@ if args.cuda:
 
 if args.dataset == 'VOC':
     config = voc
-    dataset = VOCDetection(args.dataset_root, [('2007', 'test')],
-                           BaseTransform(300, (104, 117, 123)),
-                           VOCAnnotationTransform())
+    rt = VOC_ROOT if args.dataset_root is None else args.dataset_root
+    dataset = VOCDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+elif args.dataset == 'COCO':
+    config = coco
+    rt = COCO_ROOT if args.dataset_root is None else args.dataset_root
+    dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
+    label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+elif args.dataset == 'helmet':
+    config = helmet
+    rt = HELMET_ROOT if args.dataset_root is None else args.dataset_root
+    dataset = HelmetDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
+    label_dict = dict(zip(HELMET_CLASSES, range(len(HELMET_CLASSES))))
 else:
     raise NotImplementedError()
 
@@ -141,6 +152,7 @@ def train():
     # create loss function
     loss_fn = AdaptivePriorBoxesLoss(args.beta, args.k, args.iou_thresh)
 
+    step = 0
     # train
     for iteration in range(30000):
         try:
@@ -148,6 +160,10 @@ def train():
         except StopIteration:
             b_iter = iter(data_loader)
             truths = next(b_iter)
+
+        if iteration in (5000, 10000, 15000, 20000, 25000):
+            step += 1
+            adjust_learning_rate(optimizer, 0.5, step)
 
         optimizer.zero_grad()
         v = priors_generator.fast_forward(params)
@@ -159,26 +175,6 @@ def train():
                 p[:, :-1].clamp_(max=1, min=0)
         if args.log:
             writer.add_scalar(args.save_pth, loss.item(), iteration + 1)
-        # if (iteration + 1) % args.cache_interval == 0:
-        #     means = prior_avg_importance(params, priors_generator, alphas)
-        #     with torch.no_grad():
-        #         for k, p in enumerate(params):
-        #             p[:, -1] = means[k]
-        #     if not os.path.exists('./cache/'):
-        #         os.mkdir('./cache/')
-        #     pth = './cache/%s_iter%d.pth' % (args.save_pth, iteration)
-        #     torch.save((params, alphas), pth)
-        #     print('save cache to %s ' % pth)
-        #     layer_avg = [o.mean().item() for o in means]
-        #     print('layer avg importance (normalized): ' +
-        #           str([p / sum(layer_avg) for p in layer_avg]))
-        #     _, ids = torch.cat(means).sort(descending=True)
-        #     tp = [p.clone().detach() for p in params]
-        #     for k, p in enumerate(tp):
-        #         p[:, -1] = k + 1
-        #     tp = torch.cat(tp)[ids]
-        #     print('top 50 priors: \n%s' % '\n'.join(['L%d-(%.4f, %.4f)' %
-        #                                             (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:50]]))
         if (iteration + 1) % args.cache_interval == 0:
             means = [p[:, -1].clone().detach() for p in params]
             if not os.path.exists('./cache/'):
@@ -204,6 +200,12 @@ def train():
     #     for k, p in enumerate(params):
     #         p[:, -1] = means[k]
     torch.save([p.detach().cpu() for p in params], args.save_pth)
+
+
+def adjust_learning_rate(optimizer, gamma, step):
+    lr = args.lr * (gamma ** (step))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 def show_priors(background_pth, locs, params, thresh, name='prior boxes', show=True):
@@ -274,7 +276,7 @@ if __name__ == '__main__':
         print('WITH OTHER')
         compare(gen_priors(args.save_pth), gen_priors(args.cmp_pth))
 
-if args.log:
+if args.log and args.mode == 'train':
     writer.close()
 
 
