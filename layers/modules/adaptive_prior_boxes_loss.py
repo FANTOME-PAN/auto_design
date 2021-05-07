@@ -36,5 +36,5 @@ class AdaptivePriorBoxesLoss(nn.Module):
         l1_tensor = torch.where(encoded_dis < 1., 0.5 * encoded_dis ** 2, encoded_dis - 0.5)
         l1_tensor = l1_tensor.sum(dim=1)
         # return loss value
-        return (-(sigmoid_alphas * x_filter * l1_tensor).sum()
+        return ((sigmoid_alphas * x_filter * l1_tensor).sum()
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()

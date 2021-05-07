@@ -50,8 +50,7 @@ parser.add_argument('--random_init', default=0.2, type=float,
                          'e.g., the range of init value is {k}, if set to 0; [0.8k,1.2k], if set to 0.2.')
 parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
                     type=str, help='VOC or COCO')
-parser.add_argument('--mode', default='train', choices=['train', 'test', 'compare'],
-                    type=str, help='')
+parser.add_argument('--mode', default='train', type=str, help='')
 parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
 parser.add_argument('--cuda', default='True', type=str2bool,
@@ -266,11 +265,21 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    if args.mode == 'train':
+    modes = args.mode.split(',')
+    if 'train' in modes:
+        print("#################################")
+        print("########### TRAIN MODE ##########")
+        print("#################################")
         train()
-    elif args.mode == 'test':
+    if 'test' in modes:
+        print("#################################")
+        print("########### TEST MODE ###########")
+        print("#################################")
         print('\n'.join(['Layer %d:\n%s' % (i, str(o)) for i, o in enumerate(gen_priors(args.save_pth))]))
-    elif args.mode == 'compare':
+    if 'compare' in modes:
+        print("#################################")
+        print("########## COMPARE MODE #########")
+        print("#################################")
         print('WITH ORIGINAL BBOX')
         compare(gen_priors(args.save_pth), torch.load('params_origin.pth'))
         print('WITH OTHER')
