@@ -110,7 +110,17 @@ elif args.dataset == 'helmet':
 else:
     raise NotImplementedError()
 
-labels_of_interest = [label_dict[l] for l in args.interest.split(',')]
+if args.interest in ['VOC, COCO, helmet']:
+    interest = {
+        'VOC': 'aeroplane,bicycle,bird,boat,bottle,bus,car,cat,chair,cow,diningtable,dog,'
+               'horse,motorbike,person,pottedplant,sheep,sofa,train,tvmonitor',
+        'helmet': 'helmet,helmet_on,helmet_off,person',
+        'COCO': 'horse,train,motorcycle,cat,bus,cow,bird,chair,pottedplant,bottle,boat,car,'
+                'diningtable,sheep,person,airplane,dog,bicycle'
+    }[args.interest]
+else:
+    interest = args.interest
+labels_of_interest = [label_dict[l] for l in interest.split(',')]
 
 
 def train():
@@ -292,7 +302,7 @@ if __name__ == '__main__':
         print("########## COMPARE MODE #########")
         print("#################################")
         print('WITH ORIGINAL BBOX')
-        # compare(gen_priors(args.save_pth), torch.load('params_origin.pth'))
+        compare(gen_priors(args.save_pth), torch.load('params_origin.pth'))
         print('WITH OTHER')
         compare(gen_priors(args.save_pth), gen_priors(args.cmp_pth))
 
