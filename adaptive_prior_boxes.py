@@ -1,4 +1,5 @@
 import argparse
+from utils.basic_utils import get_file_name_from_path
 import cv2
 from data import BaseTransform, detection_collate
 from data.bbox_loader import BoundingBoxesLoader
@@ -42,7 +43,7 @@ parser.add_argument('--k', default=2.5, type=float,
                     help='influence of best priors within the loss value')
 parser.add_argument('--iou_thresh', default=0.4, type=float,
                     help='threshold of minimum IOU that can be included in the loss function')
-parser.add_argument('--times_var', default=2, type=int,
+parser.add_argument('--times_var', default=20, type=int,
                     help='times of variables to the original parameters from which the priors can be generated.')
 parser.add_argument('--random_init', default=0.2, type=float,
                     help='give a random init value for each variables. This parameter can control '
@@ -55,7 +56,7 @@ parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
 parser.add_argument('--cuda', default='True', type=str2bool,
                     help='Use CUDA to train model')
-parser.add_argument('--batch_size', default=32, type=int,
+parser.add_argument('--batch_size', default=256, type=int,
                     help='Batch size for training')
 parser.add_argument('--cache_pth', default='bounding_boxes_cache.pth',
                     help='cache for truths of given dataset')
@@ -63,6 +64,8 @@ parser.add_argument('--save_pth', default='params.pth',
                     help='save path')
 parser.add_argument('--cmp_pth', default=None,
                     help='the path of the target to be compared')
+parser.add_argument('--test_per_cache', default='False', type=str2bool,
+                    help='test the current priors after every caching')
 parser.add_argument('--cache_interval', default=1000, type=int,
                     help='Batch size for training')
 parser.add_argument('--num_workers', default=4, type=int,
@@ -79,7 +82,10 @@ parser.add_argument('--gpus', default='1',
                     type=str, help='visible devices for CUDA')
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
-if args.log and args.mode == 'train':
+modes = args.mode.split(',')
+file_name = get_file_name_from_path(args.save_pth)
+
+if args.log and 'train' in modes:
     from datetime import datetime
     writer = SummaryWriter('runs/adaptive_priors_loss/%s/' % datetime.now().strftime("%Y%m%d-%H%M%S"))
 
@@ -175,22 +181,24 @@ def train():
         if args.log:
             writer.add_scalar(args.save_pth, loss.item(), iteration + 1)
         if (iteration + 1) % args.cache_interval == 0:
-            means = [p[:, -1].clone().detach() for p in params]
+            # means = [p[:, -1].clone().detach() for p in params]
             if not os.path.exists('./cache/'):
                 os.mkdir('./cache/')
-            pth = './cache/%s_iter%d.pth' % (args.save_pth, iteration)
+            pth = './cache/%s_iter%d.pth' % (file_name, iteration + 1)
             torch.save(params, pth)
             print('save cache to %s ' % pth)
-            layer = [o.mean().item() for o in means]
-            print('layer importance (normalized): ' +
-                  str([p / sum(layer) for p in layer]))
-            _, ids = torch.cat(means).sort(descending=True)
-            tp = [p.clone().detach() for p in params]
-            for k, p in enumerate(tp):
-                p[:, -1] = k + 1
-            tp = torch.cat(tp)[ids]
-            print('top 50 priors: \n%s' % '\n'.join(['L%d-(%.4f, %.4f)' %
-                                                    (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:50]]))
+            if args.test_per_cache:
+                test(pth)
+            # layer = [o.mean().item() for o in means]
+            # print('layer importance (normalized): ' +
+            #       str([p / sum(layer) for p in layer]))
+            # _, ids = torch.cat(means).sort(descending=True)
+            # tp = [p.clone().detach() for p in params]
+            # for k, p in enumerate(tp):
+            #     p[:, -1] = k + 1
+            # tp = torch.cat(tp)[ids]
+            # print('top 50 priors: \n%s' % '\n'.join(['L%d-(%.4f, %.4f)' %
+            #                                         (int(o[-1]), o[0].item(), o[1].item()) for o in tp[:50]]))
 
         if iteration % 10 == 0:
             print('iter %d: loss=%.4f' % (iteration, loss.item()))
@@ -255,6 +263,10 @@ def compare(bbox, other):
     pass
 
 
+def test(path):
+    print('\n'.join(['Layer %d:\n%s' % (i, str(o)) for i, o in enumerate(gen_priors(path))]))
+
+
 if __name__ == '__main__':
     # pth = r'E:\hwhit aiot project\auto_design\data\VOCdevkit\VOC2007\JPEGImages\000241.jpg'
     # init_boxes = PriorBox(cfg=config).forward()
@@ -265,7 +277,6 @@ if __name__ == '__main__':
     # show_lst = [5, 10, 25, 50, 90, 200]
     # for th in show_lst:
     #     show_priors(pth, locs, params, th, '%d prior boxes' % th, False)
-    modes = args.mode.split(',')
     if 'train' in modes:
         print("#################################")
         print("########### TRAIN MODE ##########")
@@ -275,13 +286,13 @@ if __name__ == '__main__':
         print("#################################")
         print("########### TEST MODE ###########")
         print("#################################")
-        print('\n'.join(['Layer %d:\n%s' % (i, str(o)) for i, o in enumerate(gen_priors(args.save_pth))]))
+        test(args.save_pth)
     if 'compare' in modes:
         print("#################################")
         print("########## COMPARE MODE #########")
         print("#################################")
         print('WITH ORIGINAL BBOX')
-        compare(gen_priors(args.save_pth), torch.load('params_origin.pth'))
+        # compare(gen_priors(args.save_pth), torch.load('params_origin.pth'))
         print('WITH OTHER')
         compare(gen_priors(args.save_pth), gen_priors(args.cmp_pth))
 

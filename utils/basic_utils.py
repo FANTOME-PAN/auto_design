@@ -21,3 +21,8 @@ def weights_init(m):
     if isinstance(m, nn.Conv2d):
         xavier(m.weight.data)
         m.bias.data.zero_()
+
+
+def get_file_name_from_path(path: str):
+    p = path
+    return p[max(p.rfind('\\'), p.rfind('/')) + 1: p.rfind('.') if p.rfind('.') > 0 else None]
