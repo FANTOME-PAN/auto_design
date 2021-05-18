@@ -110,7 +110,7 @@ elif args.dataset == 'helmet':
 else:
     raise NotImplementedError()
 
-if args.interest in ['VOC, COCO, helmet']:
+if args.interest in ['VOC', 'COCO', 'helmet']:
     interest = {
         'VOC': 'aeroplane,bicycle,bird,boat,bottle,bus,car,cat,chair,cow,diningtable,dog,'
                'horse,motorbike,person,pottedplant,sheep,sofa,train,tvmonitor',
