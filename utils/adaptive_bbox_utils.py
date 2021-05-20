@@ -13,7 +13,7 @@ def trim(params, iou_thresh=0.8):
     res = []
     for p in params:
         p = p[p[:, -1].sort(descending=True)[1]]
-        msk = torch.ones(p.size(0), dtype=torch.uint8)
+        msk = torch.ones(p.size(0), dtype=torch.bool)
         for i in range(p.size(0)):
             if msk[i] == 0:
                 continue

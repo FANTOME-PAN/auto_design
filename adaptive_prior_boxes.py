@@ -72,6 +72,8 @@ parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     help='initial learning rate')
+parser.add_argument('--prior_types', default=32, type=int,
+                    help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
 parser.add_argument('--momentum', default=0.9, type=float,
                     help='Momentum value for optim')
 parser.add_argument('--weight_decay', default=5e-4, type=float,
@@ -274,7 +276,7 @@ def compare(bbox, other):
 
 
 def test(path):
-    print('\n'.join(['Layer %d:\n%s' % (i, str(o)) for i, o in enumerate(gen_priors(path))]))
+    print('\n'.join(['Layer %d:\n%s' % (i, str(o)) for i, o in enumerate(gen_priors(path, args.prior_types))]))
 
 
 if __name__ == '__main__':

@@ -17,7 +17,6 @@ import torch.nn.init as init
 import torch.utils.data as data
 from utils.augmentations import SSDAugmentation
 from utils.adaptive_bbox_utils import gen_priors
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,2,3"
 
 
 def str2bool(v):
@@ -61,7 +60,11 @@ parser.add_argument('--prior_types', default=32, type=int,
                     help='number of types of prior boxes. a standard value through which the prior boxes is generated.')
 parser.add_argument('--save_name', default='big_net',
                     help='custom name for the trained model')
+parser.add_argument('--gpus', default='0,2,3',
+                    type=str, help='visible devices for CUDA')
 args = parser.parse_args()
+
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpus
 
 
 if torch.cuda.is_available():
