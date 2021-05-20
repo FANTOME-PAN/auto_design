@@ -27,10 +27,15 @@ class AdaptivePriorBoxesLoss(nn.Module):
         # replace original best truth indexes whose prior boxes are the best priors of given truths
         best_truth_overlap[best_prior_idx] = best_prior_overlap
         best_truth_idx[best_prior_idx] = torch.tensor(range(best_prior_idx.size(0)), dtype=torch.long)
-        # filter
+        # create filter
         x_filter = torch.zeros(best_truth_overlap.size())
         x_filter[best_truth_overlap > self.thresh] = 1.
         x_filter[best_prior_idx] = self.k
+        # filtering
+        msk = x_filter > 1e-7
+        x_filter = x_filter[msk]
+        sigmoid_alphas = sigmoid_alphas[msk]
+        best_truth_overlap = best_truth_overlap[msk]
         # return loss value
         return (-(sigmoid_alphas * x_filter * best_truth_overlap.log()).sum()
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
@@ -62,11 +67,17 @@ class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
         # replace original best truth indexes whose prior boxes are the best priors of given truths
         best_truth_overlap[best_prior_idx] = best_prior_overlap
         best_truth_idx[best_prior_idx] = torch.tensor(range(best_prior_idx.size(0)), dtype=torch.long)
-        # filter
+        # create filter
         x_filter = torch.zeros(best_truth_overlap.size())
         x_filter[best_truth_overlap > self.thresh] = 1.
         x_filter[best_prior_idx] = self.k
+        # filtering
+        msk = x_filter > 1e-7
+        x_filter = x_filter[msk]
+        sigmoid_alphas = sigmoid_alphas[msk]
+        best_truth_overlap = best_truth_overlap[msk]
         # log info
+        aaa = (best_truth_overlap < 1e-7).sum().item()
         print('%d best truths after filtering' % (x_filter > 1e-4).sum().item())
         print('%d best priors, of which %d priors fail to meet iou threshold'
               % (best_prior_idx.size(0), (best_prior_overlap <= self.thresh).sum().item()))

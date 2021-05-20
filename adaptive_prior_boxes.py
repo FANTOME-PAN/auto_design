@@ -10,7 +10,7 @@ from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_
 from layers import PriorBox
 from layers.box_utils import jaccard, point_form
 from layers.functions.prior_box import AdaptivePriorBox
-from layers.modules.adaptive_prior_boxes_loss import AdaptivePriorBoxesLoss
+from layers.modules.adaptive_prior_boxes_loss import AdaptivePriorBoxesLoss, AdaptivePBLossDebug
 from math import sqrt
 import os
 from tensorboardX import SummaryWriter
@@ -94,20 +94,24 @@ if args.log and 'train' in modes:
 if args.cuda:
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
 
+dataset = None
 if args.dataset == 'VOC':
     config = voc
     rt = VOC_ROOT if args.dataset_root is None else args.dataset_root
-    dataset = VOCDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
+    if not os.path.exists(args.cache_pth):
+        dataset = VOCDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
 elif args.dataset == 'COCO':
     config = coco
     rt = COCO_ROOT if args.dataset_root is None else args.dataset_root
-    dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
+    if not os.path.exists(args.cache_pth):
+        dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
 elif args.dataset == 'helmet':
     config = generic
     rt = HELMET_ROOT if args.dataset_root is None else args.dataset_root
-    dataset = HelmetDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
+    if not os.path.exists(args.cache_pth):
+        dataset = HelmetDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(HELMET_CLASSES, range(len(HELMET_CLASSES))))
 else:
     raise NotImplementedError()
