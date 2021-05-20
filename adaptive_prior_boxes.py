@@ -4,7 +4,7 @@ import cv2
 from data import BaseTransform, detection_collate
 from data.bbox_loader import BoundingBoxesLoader
 from data.coco18 import COCOAnnotationTransform, COCODetection, COCO_CLASSES, COCO_ROOT
-from data.config import voc, coco, helmet
+from data.config import voc, coco, helmet, generic
 from data.helmet import HelmetAnnotationTransform, HelmetDetection, HELMET_CLASSES, HELMET_ROOT
 from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_ROOT
 from layers import PriorBox
@@ -105,7 +105,7 @@ elif args.dataset == 'COCO':
     dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
 elif args.dataset == 'helmet':
-    config = helmet
+    config = generic
     rt = HELMET_ROOT if args.dataset_root is None else args.dataset_root
     dataset = HelmetDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(HELMET_CLASSES, range(len(HELMET_CLASSES))))
