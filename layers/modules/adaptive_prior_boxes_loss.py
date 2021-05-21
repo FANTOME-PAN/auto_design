@@ -34,10 +34,9 @@ class AdaptivePriorBoxesLoss(nn.Module):
         # filtering
         msk = x_filter > 1e-7
         x_filter = x_filter[msk]
-        sigmoid_alphas = sigmoid_alphas[msk]
         best_truth_overlap = best_truth_overlap[msk]
         # return loss value
-        return (-(sigmoid_alphas * x_filter * best_truth_overlap.log()).sum()
+        return (-(sigmoid_alphas[msk] * x_filter * best_truth_overlap.log()).sum()
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
 
 
@@ -74,7 +73,6 @@ class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
         # filtering
         msk = x_filter > 1e-7
         x_filter = x_filter[msk]
-        sigmoid_alphas = sigmoid_alphas[msk]
         best_truth_overlap = best_truth_overlap[msk]
         # log info
         aaa = (best_truth_overlap < 1e-7).sum().item()
@@ -86,7 +84,7 @@ class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
                  self.beta * sigmoid_alphas.sum().item(),
                  x_filter.sum().item()))
         # return loss value
-        return (-(sigmoid_alphas * x_filter * best_truth_overlap.log()).sum()
+        return (-(sigmoid_alphas[msk] * x_filter * best_truth_overlap.log()).sum()
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
 
 

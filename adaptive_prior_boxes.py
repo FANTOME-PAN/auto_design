@@ -108,13 +108,14 @@ elif args.dataset == 'COCO':
         dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
 elif args.dataset == 'helmet':
-    config = generic
+    config = helmet
     rt = HELMET_ROOT if args.dataset_root is None else args.dataset_root
     if not os.path.exists(args.cache_pth):
         dataset = HelmetDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(HELMET_CLASSES, range(len(HELMET_CLASSES))))
 else:
     raise NotImplementedError()
+config = generic
 
 if args.interest in ['VOC', 'COCO', 'helmet']:
     interest = {
