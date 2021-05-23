@@ -98,12 +98,15 @@ else:
 if args.dataset == 'helmet':
     labelmap = HELMET_CLASSES
     root = HELMET_ROOT if args.dataset_root is None else args.dataset_root
-    annopath = os.path.join(root, 'scenario3-share', 'Annotations', '%s.xml')
-    imgpath = os.path.join(root, 'scenario3-share', 'JPEGImages', '%s.jpg')
-    imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
+    annopath = os.path.join(root, 's2', 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 's2', 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 's2', 'ImageSets', 'Main') + '/{:s}.txt'
+    devkit_path = root + 'helmet'
+    set_type = 'test' if args.set_type is None else args.set_type
 elif args.dataset == 'COCO':
     labelmap = COCO_CLASSES
     root = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+    cfg = coco
     annopath = os.path.join(root, 'coco18', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
@@ -549,7 +552,7 @@ if __name__ == '__main__':
     print('Finished loading model!')
     # load data
     if args.dataset == 'helmet':
-        dataset = HelmetDetection(root, ('scenario3-share', ),
+        dataset = HelmetDetection(root, [('s2', set_type)],
                                   BaseTransform(300, dataset_mean),
                                   HelmetAnnotationTransform())
     elif args.dataset == 'VOC':
