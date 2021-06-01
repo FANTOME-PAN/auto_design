@@ -36,7 +36,7 @@ class AdaptivePriorBoxesLoss(nn.Module):
         x_filter = x_filter[msk]
         best_truth_overlap = best_truth_overlap[msk]
         # return loss value
-        return (-(sigmoid_alphas[msk] * x_filter * best_truth_overlap.log()).sum()
+        return ((sigmoid_alphas[msk] * x_filter * best_truth_overlap).sum()
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
 
 
@@ -79,13 +79,14 @@ class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
         print('%d best truths after filtering' % (x_filter > 1e-4).sum().item())
         print('%d best priors, of which %d priors fail to meet iou threshold'
               % (best_prior_idx.size(0), (best_prior_overlap <= self.thresh).sum().item()))
-        print("loss fn: (%.2f(1st term) + %.2f(2nd term)) / %.2f(3rd term)"
-              % (-(sigmoid_alphas * x_filter * best_truth_overlap.log()).sum().item(),
+        ret = ((sigmoid_alphas[msk] * x_filter * best_truth_overlap).sum()
+               + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
+        print("loss fn: (%.2f(1st term) + %.2f(2nd term)) / %.2f(3rd term) = %.2f"
+              % ((sigmoid_alphas[msk] * x_filter * best_truth_overlap).sum().item(),
                  self.beta * sigmoid_alphas.sum().item(),
-                 x_filter.sum().item()))
+                 x_filter.sum().item(), ret.item()))
         # return loss value
-        return (-(sigmoid_alphas[msk] * x_filter * best_truth_overlap.log()).sum()
-                + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
+        return ret
 
 
 class L1EncodedLoss(AdaptivePriorBoxesLoss):

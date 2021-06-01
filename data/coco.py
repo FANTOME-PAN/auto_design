@@ -17,14 +17,25 @@ if sys.version_info[0] == 2:
 else:
     import xml.etree.ElementTree as ET
 
-COCO_CLASSES = (  # always index 0
+COCO18_CLASSES = (  # always index 0
     'horse', 'train', 'motorcycle', 'cat', 'bus',
-    'cow', 'bird', 'chair', 'pottedplant', 'bottle',
-    'boat', 'car', 'diningtable', 'sheep',
+    'cow', 'bird', 'chair', 'potted plant', 'bottle',
+    'boat', 'car', 'dining table', 'sheep',
     'person', 'airplane', 'dog', 'bicycle')
 
+COCO_CLASSES = (
+    'train', 'truck', 'kite', 'microwave', 'book', 'scissors', 'sink', 'knife', 'suitcase', 'mouse', 'tennis racket',
+    'cow', 'fork', 'potted plant', 'dining table', 'handbag', 'bird', 'refrigerator', 'traffic light', 'vase',
+    'giraffe', 'umbrella', 'cup', 'bed', 'tv', 'sandwich', 'sheep', 'baseball glove', 'carrot', 'bowl', 'skis',
+    'couch', 'laptop', 'cat', 'hot dog', 'fire hydrant', 'toilet', 'skateboard', 'frisbee', 'pizza', 'motorcycle',
+    'backpack', 'bottle', 'toothbrush', 'sports ball', 'donut', 'apple', 'hair drier', 'bicycle', 'clock', 'toaster',
+    'elephant', 'spoon', 'zebra', 'surfboard', 'bear', 'orange', 'person', 'car', 'tie', 'dog', 'parking meter',
+    'cell phone', 'snowboard', 'bus', 'boat', 'baseball bat', 'horse', 'airplane', 'oven', 'bench', 'cake', 'stop sign',
+    'banana', 'keyboard', 'wine glass', 'teddy bear', 'chair', 'broccoli', 'remote'
+)
+
 # note: if you used our download scripts, this should be right
-COCO_ROOT = osp.join(HOME, "data/coco18/")
+COCO_ROOT = osp.join(HOME, "E:\\coco\\")
 
 
 class COCOAnnotationTransform(object):
@@ -41,8 +52,10 @@ class COCOAnnotationTransform(object):
     """
 
     def __init__(self, class_to_ind=None, keep_difficult=False):
+        if class_to_ind == 'COCO18':
+            class_to_ind = dict(zip([o.replace(' ', '') for o in COCO18_CLASSES], range(len(COCO18_CLASSES))))
         self.class_to_ind = class_to_ind or dict(
-            zip(COCO_CLASSES, range(len(COCO_CLASSES))))
+            zip([o.replace(' ', '') for o in COCO_CLASSES], range(len(COCO_CLASSES))))
         self.keep_difficult = keep_difficult
 
     def __call__(self, target, width, height):

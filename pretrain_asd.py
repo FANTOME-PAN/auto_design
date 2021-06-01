@@ -6,7 +6,7 @@ import os
 from data.config import voc_sd_sofa, MEANS
 import time
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
-from data.coco18 import COCO_CLASSES, COCO_ROOT, COCODetection
+from data.coco import COCO_CLASSES, COCO_ROOT, COCODetection
 from utils.augmentations import SSDAugmentation
 from torch.backends import cudnn
 from data import *

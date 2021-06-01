@@ -2,8 +2,8 @@ import argparse
 from data import *
 from ssd import build_ssd
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
-from data.coco18 import COCO_ROOT, COCODetection
-from data.config import coco
+from data.coco import COCO_ROOT, COCODetection, COCOAnnotationTransform
+from data.config import coco18, voc, helmet, vococo, coco_on_voc
 from layers.functions.prior_box import AdaptivePriorBox
 from layers.modules import MultiBoxLoss
 import os
@@ -26,7 +26,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'COCO18', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
@@ -82,12 +82,20 @@ if not os.path.exists(args.save_folder):
 
 
 def train():
-    if args.dataset == 'COCO':
-        cfg = coco
+    if args.dataset == 'COCO18':
+        cfg = coco18
+        # cfg = vococo
+        rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+        dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS),
+                                target_transform=COCOAnnotationTransform('COCO18'))
+    elif args.dataset == 'COCO':
+        cfg = coco18
+        # cfg = vococo
         rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
-        cfg = voc
+        # cfg = voc
+        cfg = coco_on_voc
         rt = args.dataset_root if args.dataset_root is not None else VOC_ROOT
         dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
@@ -104,9 +112,9 @@ def train():
         custom_mbox = [p.size(0) for p in bbox]
         if args.cuda:
             custom_priors = custom_priors.cuda()
-        ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'], custom_mbox, custom_priors)
+        ssd_net = build_ssd('train', cfg, custom_mbox, custom_priors)
     else:
-        ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
+        ssd_net = build_ssd('train', cfg)
     net = ssd_net
 
     if args.cuda:

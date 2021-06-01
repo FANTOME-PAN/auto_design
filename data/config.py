@@ -89,7 +89,7 @@ voc07_lite = {
     'name': 'VOC',
 }
 
-coco = {
+coco18 = {
     'num_classes': 19,
     'lr_steps': (160000, 200000, 240000),
     'max_iter': 240000,
@@ -102,6 +102,51 @@ coco = {
     'variance': [0.1, 0.2],
     'clip': True,
     'name': 'COCO',
+}
+
+coco = {
+    'num_classes': 81,
+    'lr_steps': (160000, 200000, 240000),
+    'max_iter': 240000,
+    'feature_maps': [38, 19, 10, 5, 3, 1],
+    'min_dim': 300,
+    'steps': [8, 16, 32, 64, 100, 300],
+    'min_sizes': [21, 45, 99, 153, 207, 261],
+    'max_sizes': [45, 99, 153, 207, 261, 315],
+    'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+    'variance': [0.1, 0.2],
+    'clip': True,
+    'name': 'COCO',
+}
+
+coco_on_voc = {
+    'num_classes': 21,
+    'lr_steps': (80000, 100000, 120000),
+    'max_iter': 120000,
+    'feature_maps': [38, 19, 10, 5, 3, 1],
+    'min_dim': 300,
+    'steps': [8, 16, 32, 64, 100, 300],
+    'min_sizes': [21, 45, 99, 153, 207, 261],
+    'max_sizes': [45, 99, 153, 207, 261, 315],
+    'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+    'variance': [0.1, 0.2],
+    'clip': True,
+    'name': 'VOC',
+}
+
+vococo = {
+    'num_classes': 19,
+    'lr_steps': (160000, 200000, 240000),
+    'max_iter': 240000,
+    'feature_maps': [38, 19, 10, 5, 3, 1],
+    'min_dim': 300,
+    'steps': [8, 16, 32, 64, 100, 300],
+    'min_sizes': [30, 60, 111, 162, 213, 264],
+    'max_sizes': [60, 111, 162, 213, 264, 315],
+    'aspect_ratios': [[2], [2, 3], [2, 3], [2, 3], [2], [2]],
+    'variance': [0.1, 0.2],
+    'clip': True,
+    'name': 'VOC_as_COCO',
 }
 
 voc_mobi_v2 = {
@@ -208,7 +253,7 @@ config_dict = {
     ('VOC07', 'mobi_ssd'): voc07_mobi,
     ('VOC', 'mobi_ssd'): voc,
     ('VOC-v2', 'mobi_ssd'): voc,
-    ('COCO', 'mobi_ssd'): coco,
+    ('COCO', 'mobi_ssd'): coco18,
     ('helmet', 'mobi_ssd'): helmet,
 
     ('VOC07', 'mobi_v2_ssd'): voc_mobi_v2,
@@ -219,7 +264,7 @@ config_dict = {
     ('VOC07', 'ssd300'): voc07,
     ('VOC', 'ssd300'): voc,
     ('VOC-v2', 'ssd300'): voc,
-    ('COCO', 'ssd300'): coco,
+    ('COCO', 'ssd300'): coco18,
     ('helmet', 'ssd300'): helmet,
 }
 #

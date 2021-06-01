@@ -213,10 +213,11 @@ mbox = {
 }
 
 
-def build_ssd(phase, size=300, num_classes=21, custom_mbox=None, custom_priors=None):
+def build_ssd(phase, cfg=voc, custom_mbox=None, custom_priors=None):
     if phase != "test" and phase != "train":
         print("ERROR: Phase: " + phase + " not recognized")
         return
+    size, num_classes = cfg['min_dim'], cfg['num_classes']
     if size != 300:
         print("ERROR: You specified size " + repr(size) + ". However, " +
               "currently only SSD300 (size=300) is supported!")
@@ -224,4 +225,4 @@ def build_ssd(phase, size=300, num_classes=21, custom_mbox=None, custom_priors=N
     base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
                                      add_extras(extras[str(size)], 1024),
                                      mbox[str(size)] if custom_mbox is None else custom_mbox, num_classes)
-    return SSD(phase, size, base_, extras_, head_, num_classes, priors=custom_priors)
+    return SSD(phase, size, base_, extras_, head_, num_classes, cfg=cfg, priors=custom_priors)

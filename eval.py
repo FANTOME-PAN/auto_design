@@ -12,8 +12,8 @@ from torch.autograd import Variable
 from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTransform
 from data import HELMET_CLASSES
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
-from data.coco18 import COCO_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
-from data.config import config_dict
+from data.coco import COCO_CLASSES, COCO18_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
+from data.config import config_dict, vococo
 from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
@@ -40,7 +40,7 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--dataset', default='helmet', choices=['VOC', 'VOC-v2', 'VOC07', 'COCO', 'helmet'],
+parser.add_argument('--dataset', default='helmet', choices=['VOC', 'VOC-v2', 'VOC07', 'COCO', 'COCO18', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--trained_model',
                     default='weights/ssd300_mAP_77.43_v2.pth', type=str,
@@ -103,10 +103,9 @@ if args.dataset == 'helmet':
     imgsetpath = os.path.join(root, 's2', 'ImageSets', 'Main') + '/{:s}.txt'
     devkit_path = root + 'helmet'
     set_type = 'test' if args.set_type is None else args.set_type
-elif args.dataset == 'COCO':
-    labelmap = COCO_CLASSES
+elif args.dataset == 'COCO18':
+    labelmap = COCO18_CLASSES
     root = args.dataset_root if args.dataset_root is not None else COCO_ROOT
-    cfg = coco
     annopath = os.path.join(root, 'coco18', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
@@ -544,9 +543,12 @@ if __name__ == '__main__':
         custom_mbox = [p.size(0) for p in bbox]
         if args.cuda:
             custom_priors = custom_priors.cuda()
-        net = build_ssd('test', 300, num_classes, custom_mbox, custom_priors)
+        net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
-        net = build_ssd('test', 300, num_classes)            # initialize SSD
+        # cfg = config_dict[(args.dataset, 'ssd300')]
+        from data.config import coco_on_voc
+        cfg = coco_on_voc
+        net = build_ssd('test', cfg)            # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
@@ -567,10 +569,10 @@ if __name__ == '__main__':
         dataset = VOCDetection(root, [('2012', set_type)],
                                BaseTransform(300, dataset_mean),
                                VOCAnnotationTransform())
-    else:
+    elif args.dataset == 'COCO18':
         dataset = COCODetection(root, [('18', set_type)],
                                 BaseTransform(300, dataset_mean),
-                                COCOAnnotationTransform())
+                                COCOAnnotationTransform('COCO18'))
 
     if args.cuda:
         net = net.cuda()

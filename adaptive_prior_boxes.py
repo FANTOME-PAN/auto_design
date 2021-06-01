@@ -3,8 +3,8 @@ from utils.basic_utils import get_file_name_from_path
 import cv2
 from data import BaseTransform, detection_collate
 from data.bbox_loader import BoundingBoxesLoader
-from data.coco18 import COCOAnnotationTransform, COCODetection, COCO_CLASSES, COCO_ROOT
-from data.config import voc, coco, helmet, generic
+from data.coco import COCOAnnotationTransform, COCODetection, COCO_CLASSES, COCO_ROOT, COCO18_CLASSES
+from data.config import voc, coco18, helmet, generic, coco
 from data.helmet import HelmetAnnotationTransform, HelmetDetection, HELMET_CLASSES, HELMET_ROOT
 from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_ROOT
 from layers import PriorBox
@@ -49,7 +49,7 @@ parser.add_argument('--random_init', default=0.2, type=float,
                     help='give a random init value for each variables. This parameter can control '
                          'the range of random value, based on the original parameters from config.'
                          'e.g., the range of init value is {k}, if set to 0; [0.8k,1.2k], if set to 0.2.')
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'helmet'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'COCO18', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--mode', default='train', type=str, help='')
 parser.add_argument('--dataset_root', default=None,
@@ -101,12 +101,13 @@ if args.dataset == 'VOC':
     if not os.path.exists(args.cache_pth):
         dataset = VOCDetection(rt, transform=BaseTransform(300, (104, 117, 123)))
     label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
-elif args.dataset == 'COCO':
-    config = coco
+elif args.dataset == 'COCO18':
+    config = coco18
     rt = COCO_ROOT if args.dataset_root is None else args.dataset_root
     if not os.path.exists(args.cache_pth):
-        dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)))
-    label_dict = dict(zip(VOC_CLASSES, range(len(VOC_CLASSES))))
+        dataset = COCODetection(rt, transform=BaseTransform(300, (104, 117, 123)),
+                                target_transform=COCOAnnotationTransform('COCO18'))
+    label_dict = dict(zip([o.replace(' ', '') for o in COCO18_CLASSES], range(len(COCO18_CLASSES))))
 elif args.dataset == 'helmet':
     config = helmet
     rt = HELMET_ROOT if args.dataset_root is None else args.dataset_root
@@ -117,17 +118,17 @@ else:
     raise NotImplementedError()
 config = generic
 
-if args.interest in ['VOC', 'COCO', 'helmet']:
+if args.interest in ['VOC', 'COCO18', 'helmet']:
     interest = {
         'VOC': 'aeroplane,bicycle,bird,boat,bottle,bus,car,cat,chair,cow,diningtable,dog,'
                'horse,motorbike,person,pottedplant,sheep,sofa,train,tvmonitor',
         'helmet': 'helmet,helmet_on,helmet_off,person',
-        'COCO': 'horse,train,motorcycle,cat,bus,cow,bird,chair,pottedplant,bottle,boat,car,'
-                'diningtable,sheep,person,airplane,dog,bicycle'
+        'COCO18': 'horse,train,motorcycle,cat,bus,cow,bird,chair,potted plant,bottle,boat,car,'
+                  'dining table,sheep,person,airplane,dog,bicycle'
     }[args.interest]
 else:
     interest = args.interest
-labels_of_interest = [label_dict[l] for l in interest.split(',')]
+labels_of_interest = [label_dict[l.replace(' ', '')] for l in interest.split(',')]
 
 
 def train():

@@ -22,7 +22,7 @@ import time
 import argparse
 import numpy as np
 import pickle
-from data.coco18 import COCO_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
+from data.coco import COCO_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
 from ssd import build_ssd
 import cv2
 
