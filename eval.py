@@ -18,6 +18,7 @@ from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
 from utils.adaptive_bbox_utils import gen_priors
+from utils.basic_utils import parse_rec
 from ssd import build_ssd
 
 import sys
@@ -170,27 +171,6 @@ class Timer(object):
             return self.average_time
         else:
             return self.diff
-
-
-def parse_rec(filename):
-    """ Parse a PASCAL VOC xml file """
-    tree = ET.parse(filename)
-    objects = []
-    for obj in tree.findall('object'):
-        obj_struct = {}
-        obj_struct['name'] = obj.find('name').text
-        obj_struct['pose'] = obj.find('pose').text
-        tmp = obj.find('truncated')
-        obj_struct['truncated'] = int(tmp.text) if tmp is not None else None
-        obj_struct['difficult'] = int(obj.find('difficult').text)
-        bbox = obj.find('bndbox')
-        obj_struct['bbox'] = [int(bbox.find('xmin').text) - 1,
-                              int(bbox.find('ymin').text) - 1,
-                              int(bbox.find('xmax').text) - 1,
-                              int(bbox.find('ymax').text) - 1]
-        objects.append(obj_struct)
-
-    return objects
 
 
 def get_output_dir(name, phase):

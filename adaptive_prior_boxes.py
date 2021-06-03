@@ -118,6 +118,9 @@ else:
     raise NotImplementedError()
 config = generic
 
+if torch.cuda.is_available():
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
 if args.interest in ['VOC', 'COCO18', 'helmet']:
     interest = {
         'VOC': 'aeroplane,bicycle,bird,boat,bottle,bus,car,cat,chair,cow,diningtable,dog,'
