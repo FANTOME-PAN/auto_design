@@ -85,11 +85,11 @@ class PriorsPool:
                 # unit center x,y
                 cx = (j + 0.5) / f_k
                 cy = (i + 0.5) / f_k
-                for l, p in enumerate(params[k]):
+                for ii, p in enumerate(params[k]):
                     tmp = torch.zeros(4)
                     tmp[0], tmp[1] = cx, cy
-                    tmp[2:] = p
-                    mean[k][l] += [tmp]
+                    tmp[2:] = p[:2]
+                    mean[k][ii] += [tmp]
         # back to torch land
         # output = [torch.stack(o).clamp_(max=1, min=0) for o in mean]
         if ret_point_form:
@@ -109,94 +109,136 @@ class PriorsPool:
         return ret
 
     def __init__(self, dataset: (VOCDetection, COCODetection), prior_types_after_trim, cfg,
-                 num_types_thresh, num_boxes_thresh, num_samples=9999999, interval=4096, pool_size=40):
+                 num_types_thresh, num_boxes_thresh, gts_cache=None,
+                 num_samples=9999999, interval=4096, pool_size=40, weighted_layers=True):
         self.prior_types = prior_types_after_trim
+        self.lweight = [t[:, -1].sigmoid().mean().item() for t in self.prior_types]
+        print(self.lweight)
         self.pool_size = pool_size
         self.N = num_types_thresh
         self.M = num_boxes_thresh
         self.total_num_types = sum([o.size(0) for o in self.prior_types])
+        self.feature_maps = cfg['feature_maps']
+        self.__end_push = False
         # retrieve samples from the given dataset
-        sample_list = PriorsPool.__sample(dataset, num_samples)
-        gts = []
-        for sample in sample_list:
-            objs, w, h = parse_rec(sample, with_size=True)
-            mod = torch.tensor([1 / w, 1 / h, 1 / w, 1 / h])
-            gts += [torch.tensor([torch.tensor(obj['bbox']) * mod for obj in objs])]
-        self.gts = torch.cat(gts)
+        if gts_cache is None or not os.path.exists(gts_cache):
+            sample_list = PriorsPool.__sample(dataset, num_samples)
+            gts = []
+            for sample in sample_list:
+                objs, w, h = parse_rec(sample, with_size=True)
+                mod = torch.tensor([1 / w, 1 / h, 1 / w, 1 / h])
+                gts += [torch.stack([torch.tensor(obj['bbox'], dtype=torch.float) * mod for obj in objs])]
+            gts = torch.cat(gts)
+            self.gts = gts
+            if gts_cache is not None:
+                torch.save(self.gts, gts_cache)
+        else:
+            self.gts = torch.load(gts_cache)
         # generate prior boxes for each type. prior_groups[ k ][ l ] = prior boxes of l-th type in layer k
         self.prior_groups = PriorsPool.__gen_priors(self.prior_types, cfg)
         # intervals
         self.intervals = [i for i in range(0, self.gts.size(0), interval)] + [self.gts.size(0)]
-        self.intervals = zip(self.intervals[:-1], self.intervals[1:])
+        self.intervals = [(i, j) for i, j in zip(self.intervals[:-1], self.intervals[1:])]
         #
-        self.selected_types = []
+        self.selected_tokens = []
+        self.num_selected_boxes = 0
         self.pool = {}
         # initial best IOUs, select the most important prior types of each layer
         self.best_ious = torch.zeros(self.gts.size(0))
         for i in range(len(self.prior_types)):
             token = i << 16
             self.best_ious = self.best_ious.max(self.__mk_iou_tensor(token))
-            self.selected_types.append(token)
+            self.selected_tokens.append(token)
+            self.num_selected_boxes += self.prior_groups[i][0].size(0)
         # initialize the pool
         for i in range(self.pool_size):
             self.__push()
 
     # 0 for functioning well
-    # 1 for reaching the limit for the number of types
+    # 1 for reaching the limit for the number of types or the limit for the number of prior boxes
     # 2 for no priors that can bring bonus regarding best IOUs with truths.
     def pop(self):
-        if len(self.selected_types) >= self.N:
+        if len(self.selected_tokens) >= self.N:
             return 1
+        if self.num_selected_boxes >= self.M:
+            return 1
+        if len(self.pool) == 0:
+            return 1
+        # remove infeasible types
+        flag = True
+        while flag:
+            abandon_lst = []
+            for token in self.pool.keys():
+                i, j = token >> 16, token & 0xffff
+                if self.num_selected_boxes + self.prior_groups[i][j].size(0) > self.M:
+                    abandon_lst.append(token)
+            if len(abandon_lst) == 0:
+                flag = False
+            for token in abandon_lst:
+                del self.pool[token]
+                # self.pool.pop(token)
+                self.__push()
+        # find type with max bonus
         max_token = -1
-        max_bonus = -1
+        max_bonus = 1e-6
         for token, (ious, msk) in self.pool.items():
             # to reduce repeated calculations
             t, ot = ious[msk], self.best_ious[msk]
             mmsk = t > ot
             msk[msk] = mmsk
-            bonus = (t[mmsk] - ot[mmsk]).sum().item()
+            bonus = (t[mmsk] - ot[mmsk]).sum().item() * self.lweight[token >> 16]
             if max_bonus < bonus:
                 max_bonus = bonus
                 max_token = token
         if max_token < 0:
             return 2
         # pop
-        self.selected_types.append(max_token)
+        self.selected_tokens.append(max_token)
         ious, msk = self.pool[max_token]
         self.best_ious[msk] = ious[msk]
+        i, j = max_token >> 16, max_token & 0xffff
+        self.num_selected_boxes += self.prior_groups[i][j].size(0)
+        print('select prior type %d in layer %d: %s' % (j, i, str(self.prior_types[i][j])))
         del self.pool[max_token]
-        self.pool.pop(max_token)
+        # self.pool.pop(max_token)
         self.__push()
         return 0
 
     def selected_prior_types(self):
         ret = [[] for _ in range(len(self.prior_types))]
-        for token in self.selected_types:
+        for token in self.selected_tokens:
             i, j = token >> 16, token & 0xffff
             ret[i].append(self.prior_types[i][j][:2])
         ret = [torch.stack(layer) for layer in ret]
         return ret
 
     def __push(self):
+        if self.__end_push:
+            return None
         if len(self.pool) >= self.pool_size:
+            self.__end_push = True
             return None
-        if len(self.pool) + len(self.selected_types) >= self.total_num_types:
+        if len(self.pool) + len(self.selected_tokens) >= self.total_num_types:
+            self.__end_push = True
             return None
-        min_alpha = 99999999.
+        max_alpha = -99999999.
         # token value is supposed to be less than 2^31 - 1, while number of layers should be less than 2^15 - 1
-        min_token = -1
-        # find min
+        max_token = -1
+        # find max
         for i, layer in enumerate(self.prior_types):
             for j, ptype in enumerate(layer):
                 token = (i << 16) | j
-                if token in self.selected_types or token in self.pool.keys():
+                if token in self.selected_tokens or token in self.pool.keys():
                     continue
-                if min_alpha > ptype[-1]:
-                    min_alpha = ptype[-1]
-                    min_token = token
+                if self.num_selected_boxes + self.prior_groups[i][j].size(0) > self.M:
+                    continue
+                if max_alpha < ptype[-1]:
+                    max_alpha = ptype[-1]
+                    max_token = token
         # No priors left
-        if min_token < 0:
+        if max_token < 0:
+            self.__end_push = True
             return None
         # build record
-        self.pool[min_token] = (self.__mk_iou_tensor(min_token), torch.ones(self.gts.size(0), dtype=torch_bool))
-        return min_token
+        self.pool[max_token] = (self.__mk_iou_tensor(max_token), torch.ones(self.gts.size(0), dtype=torch_bool))
+        return max_token

@@ -83,8 +83,8 @@ if not os.path.exists(args.save_folder):
 
 def train():
     if args.dataset == 'COCO18':
-        cfg = coco18
-        # cfg = vococo
+        # cfg = coco18
+        cfg = vococo
         rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS),
                                 target_transform=COCOAnnotationTransform('COCO18'))
@@ -106,10 +106,10 @@ def train():
         raise RuntimeError()
     if args.custom_priors is not None:
         params = torch.load(args.custom_priors)
-        bbox = gen_priors(params, args.prior_types, cfg)
+        # bbox = gen_priors(params, args.prior_types, cfg)
         gen = AdaptivePriorBox(cfg, phase='test')
-        custom_priors = gen.forward(bbox)
-        custom_mbox = [p.size(0) for p in bbox]
+        custom_priors = gen.forward(params)
+        custom_mbox = [p.size(0) for p in params]
         if args.cuda:
             custom_priors = custom_priors.cuda()
         ssd_net = build_ssd('train', cfg, custom_mbox, custom_priors)

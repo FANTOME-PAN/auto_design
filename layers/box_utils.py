@@ -3,7 +3,7 @@ import torch
 t_bool = torch.bool if torch.__version__ > '1.1.0' else torch.uint8
 
 
-def point_form(boxes):
+def point_form(boxes) -> torch.Tensor:
     """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
     representation for comparison to point form ground truth data.
     Args:

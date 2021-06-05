@@ -517,17 +517,17 @@ if __name__ == '__main__':
     if args.custom_priors is not None:
         cfg = config_dict[(args.dataset, 'ssd300')]
         params = torch.load(args.custom_priors)
-        bbox = gen_priors(params, args.prior_types, cfg)
+        # bbox = gen_priors(params, args.prior_types, cfg)
         gen = AdaptivePriorBox(cfg, phase='test')
-        custom_priors = gen.forward(bbox)
-        custom_mbox = [p.size(0) for p in bbox]
+        custom_priors = gen.forward(params)
+        custom_mbox = [p.size(0) for p in params]
         if args.cuda:
             custom_priors = custom_priors.cuda()
         net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
-        # cfg = config_dict[(args.dataset, 'ssd300')]
-        from data.config import coco_on_voc
-        cfg = coco_on_voc
+        cfg = config_dict[(args.dataset, 'ssd300')]
+        # from data.config import coco_on_voc
+        # cfg = coco_on_voc
         net = build_ssd('test', cfg)            # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()

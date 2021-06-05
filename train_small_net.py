@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from data.coco import COCO_ROOT, COCODetection
-from data.config import coco18, coco_lite
+from data.config import coco, coco_lite
 import torch.utils.data as data
 import argparse
 # from train_big_ssd import adjust_learning_rate, weights_init
