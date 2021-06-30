@@ -11,6 +11,7 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTransform
 from data import HELMET_CLASSES
+from data.bccd import BCCD_CLASSES, BCCD_ROOT, BCCDDetection
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
 from data.coco import COCO_CLASSES, COCO18_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
 from data.config import config_dict, vococo
@@ -98,49 +99,56 @@ else:
 
 if args.dataset == 'helmet':
     labelmap = HELMET_CLASSES
-    root = HELMET_ROOT if args.dataset_root is None else args.dataset_root
+    root = args.dataset_root or HELMET_ROOT
     annopath = os.path.join(root, 's2', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 's2', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 's2', 'ImageSets', 'Main') + '/{:s}.txt'
     devkit_path = root + 'helmet'
-    set_type = 'test' if args.set_type is None else args.set_type
+    set_type = args.set_type or 'test'
 elif args.dataset == 'COCO18':
     labelmap = COCO18_CLASSES
-    root = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+    root = args.dataset_root or COCO_ROOT
     annopath = os.path.join(root, 'coco18', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
     devkit_path = root + 'coco18'
-    set_type = 'test' if args.set_type is None else args.set_type
+    set_type = args.set_type or 'test'
 elif args.dataset == 'VOC':
     labelmap = VOC_CLASSES
-    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
+    root = args.dataset_root or VOC_ROOT
     annopath = os.path.join(root, 'VOC2007', 'Annotations', '%s.xml')
     imgpath = os.path.join(root, 'VOC2007', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
     YEAR = '2007'
     devkit_path = root + 'VOC' + YEAR
-    set_type = 'test' if args.set_type is None else args.set_type
-
-elif args.dataset == 'VOC-v2':
-    labelmap = VOC_CLASSES
-    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
-    annopath = os.path.join(root, 'VOC2012', 'Annotations', '%s.xml')
-    imgpath = os.path.join(root, 'VOC2012', 'JPEGImages', '%s.jpg')
-    imgsetpath = os.path.join(root, 'VOC2012', 'ImageSets', 'Main') + '/{:s}.txt'
-    YEAR = '2012'
-    devkit_path = root + 'VOC' + YEAR
-    set_type = 'test4952' if args.set_type is None else args.set_type
-
-elif args.dataset == 'VOC07':
-    labelmap = VOC_CLASSES
-    root = VOC_ROOT if args.dataset_root is None else args.dataset_root
-    annopath = os.path.join(root, 'VOC2007', 'Annotations', '%s.xml')
-    imgpath = os.path.join(root, 'VOC2007', 'JPEGImages', '%s.jpg')
-    imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
-    YEAR = '2007'
-    devkit_path = root + 'VOC' + YEAR
-    set_type = 'test' if args.set_type is None else args.set_type
+    set_type = args.set_type or 'test'
+elif args.dataset == 'BCCD':
+    labelmap = BCCD_CLASSES
+    root = args.dataset_root or BCCD_ROOT
+    annopath = os.path.join(root, 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 'ImageSets', 'Main') + '/{:s}.txt'
+    devkit_path = root
+    set_type = args.set_type or 'test'
+# elif args.dataset == 'VOC-v2':
+#     labelmap = VOC_CLASSES
+#     root = VOC_ROOT if args.dataset_root is None else args.dataset_root
+#     annopath = os.path.join(root, 'VOC2012', 'Annotations', '%s.xml')
+#     imgpath = os.path.join(root, 'VOC2012', 'JPEGImages', '%s.jpg')
+#     imgsetpath = os.path.join(root, 'VOC2012', 'ImageSets', 'Main') + '/{:s}.txt'
+#     YEAR = '2012'
+#     devkit_path = root + 'VOC' + YEAR
+#     set_type = 'test4952' if args.set_type is None else args.set_type
+#
+# elif args.dataset == 'VOC07':
+#     labelmap = VOC_CLASSES
+#     root = VOC_ROOT if args.dataset_root is None else args.dataset_root
+#     annopath = os.path.join(root, 'VOC2007', 'Annotations', '%s.xml')
+#     imgpath = os.path.join(root, 'VOC2007', 'JPEGImages', '%s.jpg')
+#     imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
+#     YEAR = '2007'
+#     devkit_path = root + 'VOC' + YEAR
+#     set_type = 'test' if args.set_type is None else args.set_type
 
 else:
     raise NotImplementedError()
@@ -150,6 +158,7 @@ dataset_mean = (104, 117, 123)
 
 class Timer(object):
     """A simple timer."""
+
     def __init__(self):
         self.total_time = 0.
         self.calls = 0
@@ -201,7 +210,7 @@ def write_voc_results_file(all_boxes, dataset):
         filename = get_voc_results_file_template(set_type, cls)
         with open(filename, 'wt') as f:
             for im_ind, index in enumerate(dataset.ids):
-                dets = all_boxes[cls_ind+1][im_ind]
+                dets = all_boxes[cls_ind + 1][im_ind]
                 if dets == []:
                     continue
                 # the VOCdevkit expects 1-based indices
@@ -223,8 +232,8 @@ def do_python_eval(output_dir='output', use_07=True):
     for i, cls in enumerate(labelmap):
         filename = get_voc_results_file_template(set_type, cls)
         rec, prec, ap = voc_eval(
-           filename, annopath, imgsetpath.format(set_type), cls, cachedir,
-           ovthresh=0.5, use_07_metric=use_07_metric)
+            filename, annopath, imgsetpath.format(set_type), cls, cachedir,
+            ovthresh=0.5, use_07_metric=use_07_metric)
         aps += [ap]
         print('AP for {} = {:.4f}'.format(cls, ap))
         with open(os.path.join(output_dir, cls + '_pr.pkl'), 'wb') as f:
@@ -306,11 +315,11 @@ cachedir: Directory for caching the annotations
 [use_07_metric]: Whether to use VOC07's 11 point AP computation
    (default True)
 """
-# assumes detections are in detpath.format(classname)
-# assumes annotations are in annopath.format(imagename)
-# assumes imagesetfile is a text file with each line an image name
-# cachedir caches the annotations in a pickle file
-# first load gt
+    # assumes detections are in detpath.format(classname)
+    # assumes annotations are in annopath.format(imagename)
+    # assumes imagesetfile is a text file with each line an image name
+    # cachedir caches the annotations in a pickle file
+    # first load gt
     if not os.path.isdir(cachedir):
         os.mkdir(cachedir)
     cachefile = os.path.join(cachedir, 'annots.pkl')
@@ -431,7 +440,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
     all_boxes = [[[] for _ in range(num_images)]
-                 for _ in range(len(labelmap)+1)]
+                 for _ in range(len(labelmap) + 1)]
 
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
@@ -513,7 +522,7 @@ def evaluate_detections(box_list, output_dir, dataset):
 
 if __name__ == '__main__':
     # load net
-    num_classes = len(labelmap) + 1                      # +1 for background
+    num_classes = len(labelmap) + 1  # +1 for background
     if args.custom_priors is not None:
         cfg = config_dict[(args.dataset, 'ssd300')]
         params = torch.load(args.custom_priors)
@@ -528,7 +537,7 @@ if __name__ == '__main__':
         cfg = config_dict[(args.dataset, 'ssd300')]
         # from data.config import coco_on_voc
         # cfg = coco_on_voc
-        net = build_ssd('test', cfg)            # initialize SSD
+        net = build_ssd('test', cfg)  # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
@@ -541,14 +550,16 @@ if __name__ == '__main__':
         dataset = VOCDetection(root, [('2007', set_type)],
                                BaseTransform(300, dataset_mean),
                                VOCAnnotationTransform())
-    elif args.dataset == 'VOC07':
-        dataset = VOCDetection(root, [('2007', set_type)],
-                               BaseTransform(300, dataset_mean),
-                               VOCAnnotationTransform())
-    elif args.dataset == 'VOC-v2':
-        dataset = VOCDetection(root, [('2012', set_type)],
-                               BaseTransform(300, dataset_mean),
-                               VOCAnnotationTransform())
+    elif args.dataset == 'VOC':
+        dataset = BCCDDetection(root, (set_type,), BaseTransform(300, dataset_mean))
+    # elif args.dataset == 'VOC07':
+    #     dataset = VOCDetection(root, [('2007', set_type)],
+    #                            BaseTransform(300, dataset_mean),
+    #                            VOCAnnotationTransform())
+    # elif args.dataset == 'VOC-v2':
+    #     dataset = VOCDetection(root, [('2012', set_type)],
+    #                            BaseTransform(300, dataset_mean),
+    #                            VOCAnnotationTransform())
     elif args.dataset == 'COCO18':
         dataset = COCODetection(root, [('18', set_type)],
                                 BaseTransform(300, dataset_mean),
