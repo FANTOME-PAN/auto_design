@@ -579,34 +579,3 @@ class SSDAugmentation(object):
         return self.augment(img, boxes, labels)
 
 
-class ASDAugmentation:
-    def __init__(self, size=300, mean=(104, 117, 123)):
-        self.augment = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoords(),
-            PhotometricDistort(),
-            ExpandToSize(mean=mean, w_h_ratio=1., choice='random'),
-            RandomSquareSampleCrop(),
-            RandomMirror(),
-            ToPercentCoords(),
-            Resize(size=size),
-            SubtractMeans(mean=mean)
-        ])
-
-    def __call__(self, img, boxes, labels):
-        return self.augment(img, boxes, labels)
-
-
-class SimpleTransformForTest:
-    def __init__(self, size, mean):
-        self.transform = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoords(),
-            ExpandToSize(mean=mean, w_h_ratio=1., choice='centre'),
-            ToPercentCoords(),
-            Resize(size=size),
-            SubtractMeans(mean=mean)
-        ])
-
-    def __call__(self, img, boxes, labels):
-        return self.transform(img, boxes, labels)
