@@ -62,6 +62,17 @@ def gen_priors(params, num_types=32, feature_maps=voc['feature_maps']):
     return bbox
 
 
+def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4096):
+    intervals = [i for i in range(0, gts.size(0), interval)] + [gts.size(0)]
+    ret = torch.zeros(gts.size(0))
+    for start, end in zip(intervals[:-1], intervals[1:]):
+        truths = gts[start:end].cuda()
+        overlaps = jaccard(truths, anchors)
+        best_prior_overlap, _ = overlaps.max(1, keepdim=False)
+        ret[start:end] = best_prior_overlap
+    return ret
+
+
 class PriorsPool:
     @staticmethod
     # sample the given number of annotations from the given dataset

@@ -6,7 +6,7 @@ from data.helmet import HelmetDetection, HELMET_CLASSES, HELMET_ROOT
 from data.voc0712 import VOCDetection, VOC_CLASSES, VOC_ROOT
 import torch
 import os
-from utils.adaptive_bbox_utils import gen_priors, PriorsPool, trim
+from utils.anchor_generator_utils import gen_priors, PriorsPool, trim
 
 
 parser = argparse.ArgumentParser(

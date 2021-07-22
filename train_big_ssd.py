@@ -16,7 +16,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn.init as init
 import torch.utils.data as data
 from utils.augmentations import SSDAugmentation
-from utils.adaptive_bbox_utils import gen_priors
+from utils.anchor_generator_utils import gen_priors
 
 
 def str2bool(v):

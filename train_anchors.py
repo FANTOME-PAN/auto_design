@@ -10,13 +10,13 @@ from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_
 from layers import PriorBox
 from layers.box_utils import jaccard, point_form
 from layers.functions.prior_box import AdaptivePriorBox
-from layers.modules.adaptive_prior_boxes_loss import AdaptivePriorBoxesLoss, AdaptivePBLossDebug
+from layers.modules.IOUloss import IOULoss, AdaptivePBLossDebug
 from math import sqrt
 import os
 from tensorboardX import SummaryWriter
 import torch
 from torch import optim
-from utils.adaptive_bbox_utils import gen_priors
+from utils.anchor_generator_utils import gen_priors
 
 
 def str2bool(s):
@@ -123,11 +123,9 @@ if torch.cuda.is_available():
 
 if args.interest in ['VOC', 'COCO18', 'helmet']:
     interest = {
-        'VOC': 'aeroplane,bicycle,bird,boat,bottle,bus,car,cat,chair,cow,diningtable,dog,'
-               'horse,motorbike,person,pottedplant,sheep,sofa,train,tvmonitor',
-        'helmet': 'helmet,helmet_on,helmet_off,person',
-        'COCO18': 'horse,train,motorcycle,cat,bus,cow,bird,chair,potted plant,bottle,boat,car,'
-                  'dining table,sheep,person,airplane,dog,bicycle'
+        'VOC': ','.join(VOC_CLASSES),
+        'helmet': ','.join(HELMET_CLASSES),
+        'COCO18': ','.join(COCO18_CLASSES)
     }[args.interest]
 else:
     interest = args.interest
@@ -176,7 +174,7 @@ def train():
                           weight_decay=args.weight_decay)
 
     # create loss function
-    loss_fn = AdaptivePriorBoxesLoss(args.beta, args.k, args.iou_thresh)
+    loss_fn = IOULoss(args.beta, args.k, args.iou_thresh)
 
     step = 0
     # train

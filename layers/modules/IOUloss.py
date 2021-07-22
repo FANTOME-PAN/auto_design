@@ -4,10 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class AdaptivePriorBoxesLoss(nn.Module):
+class IOULoss(nn.Module):
     # Restraint: iou threshold >= 0.5
     def __init__(self, beta=1., k=5, iou_thresh=0.5):
-        super(AdaptivePriorBoxesLoss, self).__init__()
+        super(IOULoss, self).__init__()
         self.beta = beta
         self.k = k
         self.thresh = iou_thresh
@@ -40,7 +40,7 @@ class AdaptivePriorBoxesLoss(nn.Module):
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
 
 
-class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
+class AdaptivePBLossDebug(IOULoss):
     # Restraint: iou threshold >= 0.5
     def __init__(self, beta=1., k=5, iou_thresh=0.5):
         super(AdaptivePBLossDebug, self).__init__()
@@ -89,7 +89,7 @@ class AdaptivePBLossDebug(AdaptivePriorBoxesLoss):
         return ret
 
 
-class L1EncodedLoss(AdaptivePriorBoxesLoss):
+class L1EncodedLoss(IOULoss):
     def forward(self, locs: torch.Tensor, params: torch.Tensor, truths, variance=(0.1, 0.2)):
         sigmoid_alphas = params[:, -1].sigmoid()  # size [num_priors]
         priors = torch.cat([locs, params[:, :2]], dim=1)  # size [num_priors, 4]

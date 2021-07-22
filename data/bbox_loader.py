@@ -14,7 +14,7 @@ class BoundingBoxesLoader:
                  cache_pth='bounding_boxes_cache.pth'):
         if os.path.exists(cache_pth):
             self.bb_data = torch.load(cache_pth)
-        else:
+        elif not cache_pth:
             self.bb_data = []
             loader = DataLoader(dataset, 512,
                                 collate_fn=detection_collate_cuda)
@@ -25,7 +25,7 @@ class BoundingBoxesLoader:
                     self.bb_data.extend([o[:4] for o in targets if int(o[4].item()) in interest])
             self.bb_data = torch.stack(self.bb_data)
             torch.save(self.bb_data, cache_pth)
-            print('cache file saved.')
+            # print('cache file saved.')
         self.shuffle = shuffle
         self.b_size = batch_size
         self.drop_last = drop_last

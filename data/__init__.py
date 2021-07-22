@@ -36,7 +36,6 @@ def detection_collate_cuda(batch):
     return torch.stack(imgs, 0), targets
 
 
-
 def base_transform(image, size, mean):
     x = cv2.resize(image, (size, size)).astype(np.float32)
     x -= mean
