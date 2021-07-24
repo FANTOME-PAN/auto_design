@@ -3,9 +3,9 @@ from data.voc0712 import VOCAnnotationTransform, VOCDetection
 import os.path as osp
 
 BCCD_CLASSES = (  # always index 0
-    'RBC', 'WBC', 'Platelets')
+    'rbc', 'wbc', 'platelets')
 
-BCCD_ROOT = osp.join(HOME, "data/BCCD/")
+BCCD_ROOT = 'D:\\dataset pan\\BCCD\\'
 
 
 class BCCDDetection(VOCDetection):

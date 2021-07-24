@@ -2,12 +2,15 @@ import argparse
 from data import *
 from ssd import build_ssd
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
+from data.bccd import BCCD_ROOT, BCCDDetection
 from data.coco import COCO_ROOT, COCODetection, COCOAnnotationTransform
-from data.config import coco18, voc, helmet, vococo, coco_on_voc
+from data.shwd import SHWD_ROOT, SHWDDetection
+from data.config import coco18, voc, helmet, vococo, coco_on_voc, bccd, shwd
 from layers.functions.prior_box import AdaptivePriorBox
 from layers.modules import MultiBoxLoss
 import os
 import sys
+import warnings
 import time
 import torch
 import torch.nn as nn
@@ -18,6 +21,9 @@ import torch.utils.data as data
 from utils.augmentations import SSDAugmentation
 from utils.anchor_generator_utils import gen_priors
 
+warnings.filterwarnings("ignore")
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -26,7 +32,7 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'COCO18', 'helmet'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'COCO18', 'helmet', 'BCCD', 'SHWD'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
@@ -85,22 +91,30 @@ def train():
     if args.dataset == 'COCO18':
         # cfg = coco18
         cfg = vococo
-        rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+        rt = args.dataset_root or COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS),
                                 target_transform=COCOAnnotationTransform('COCO18'))
     elif args.dataset == 'COCO':
         cfg = coco18
         # cfg = vococo
-        rt = args.dataset_root if args.dataset_root is not None else COCO_ROOT
+        rt = args.dataset_root or COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         # cfg = voc
         cfg = coco_on_voc
-        rt = args.dataset_root if args.dataset_root is not None else VOC_ROOT
+        rt = args.dataset_root or VOC_ROOT
         dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    elif args.dataset == 'BCCD':
+        cfg = bccd
+        rt = args.dataset_root or BCCD_ROOT
+        dataset = BCCDDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+    elif args.dataset == 'SHWD':
+        cfg = bccd
+        rt = args.dataset_root or SHWD_ROOT
+        dataset = SHWDDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':
         cfg = helmet
-        rt = args.dataset_root if args.dataset_root is not None else HELMET_ROOT
+        rt = args.dataset_root or HELMET_ROOT
         dataset = HelmetDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     else:
         raise RuntimeError()

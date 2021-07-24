@@ -5,7 +5,7 @@ import os.path as osp
 SHWD_CLASSES = (  # always index 0
     'hat', 'person')
 
-SHWD_ROOT = osp.join(HOME, "data/SHWD/")
+SHWD_ROOT = 'D:\\dataset pan\\SHWD\\'
 
 
 class SHWDDetection(VOCDetection):
