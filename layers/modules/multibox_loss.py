@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ..box_utils import match, log_sum_exp
+from utils.box_utils import match, log_sum_exp
 
 
 class MultiBoxLoss(nn.Module):

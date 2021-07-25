@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from ..box_utils import decode, nms
+from utils.box_utils import decode, nms
 from data.config import helmet
 
 

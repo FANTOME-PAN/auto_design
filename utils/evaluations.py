@@ -4,8 +4,7 @@ import torch
 from torch import nn
 from data.helmet import HELMET_CLASSES
 from data.config import voc
-from layers.box_utils import jaccard
-import pickle
+from utils.box_utils import jaccard
 import cv2
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET

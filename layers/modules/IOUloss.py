@@ -1,7 +1,6 @@
-from layers.box_utils import encode, jaccard, point_form
+from utils.box_utils import encode, jaccard, point_form
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class IOULoss(nn.Module):

@@ -1,16 +1,15 @@
 import argparse
 from utils.basic_utils import get_file_name_from_path
 import cv2
-from data import BaseTransform, detection_collate
+from data import BaseTransform
 from data.bbox_loader import BoundingBoxesLoader
-from data.coco import COCOAnnotationTransform, COCODetection, COCO_CLASSES, COCO_ROOT, COCO18_CLASSES
-from data.config import voc, coco18, helmet, generic, coco
-from data.helmet import HelmetAnnotationTransform, HelmetDetection, HELMET_CLASSES, HELMET_ROOT
-from data.voc0712 import VOCAnnotationTransform, VOCDetection, VOC_CLASSES, VOC_ROOT
-from layers import PriorBox
-from layers.box_utils import jaccard, point_form
+from data.coco import COCOAnnotationTransform, COCODetection, COCO_ROOT, COCO18_CLASSES
+from data.config import voc, coco18, helmet, generic
+from data.helmet import HelmetDetection, HELMET_CLASSES, HELMET_ROOT
+from data.voc0712 import VOCDetection, VOC_CLASSES, VOC_ROOT
+from utils.box_utils import jaccard, point_form
 from layers.functions.prior_box import AdaptivePriorBox
-from layers.modules.IOUloss import IOULoss, AdaptivePBLossDebug
+from layers.modules.IOUloss import IOULoss
 from math import sqrt
 import os
 from tensorboardX import SummaryWriter

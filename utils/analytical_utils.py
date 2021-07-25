@@ -1,6 +1,7 @@
-from utils.anchor_generator_utils import mk_iou_tensor
 from data.voc0712 import VOCDetection
 import torch
+from utils.anchor_generator_utils import mk_iou_tensor
+from utils.box_utils import encode
 
 
 class AnchorsAnalyzer:
@@ -29,5 +30,14 @@ class AnchorsAnalyzer:
         if self._best_ious is None:
             self._best_ious = mk_iou_tensor(self._anchs, self._gts)
         return self._best_ious.mean().item()
+
+    def get_approx_loss(self):
+        self._best_ious, idx = mk_iou_tensor(self._anchs, self._gts, ret_idx=True)
+        encoded_dis = encode(self._gts, self._anchs[idx], (0.1, 0.2))
+        encoded_dis = torch.abs(encoded_dis)
+        l1_tensor = torch.where(encoded_dis < 1., 0.5 * encoded_dis ** 2, encoded_dis - 0.5)
+        l1 = l1_tensor.sum(dim=1)
+        return l1.mean().item()
+
 
 

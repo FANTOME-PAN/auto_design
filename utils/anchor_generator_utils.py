@@ -2,11 +2,9 @@ from data.config import voc
 import os
 import random
 import torch
-from torch.utils.data import Dataset
 from data.coco import COCODetection
 from data.voc0712 import VOCDetection
-from layers.box_utils import encode, jaccard, point_form
-from layers.functions.prior_box import AdaptivePriorBox
+from utils.box_utils import jaccard, point_form
 from utils.basic_utils import parse_rec
 
 if torch.__version__ < '1.6.0':
@@ -62,14 +60,21 @@ def gen_priors(params, num_types=32, feature_maps=voc['feature_maps']):
     return bbox
 
 
-def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4096):
+def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4096, ret_idx=False):
     intervals = [i for i in range(0, gts.size(0), interval)] + [gts.size(0)]
     ret = torch.zeros(gts.size(0))
+    idx = None
+    if ret_idx:
+        idx = torch.zeros(gts.size(0), dtype=torch.long)
     for start, end in zip(intervals[:-1], intervals[1:]):
         truths = gts[start:end].cuda()
         overlaps = jaccard(truths, anchors)
         best_prior_overlap, _ = overlaps.max(1, keepdim=False)
         ret[start:end] = best_prior_overlap
+        if ret_idx:
+            idx[start:end] = _
+    if ret_idx:
+        return ret, idx
     return ret
 
 
