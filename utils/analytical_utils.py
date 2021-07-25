@@ -10,17 +10,24 @@ class AnchorsAnalyzer:
         self._best_ious = None
 
     def get_recall(self, thresh=0.5):
-        self._best_ious = self._best_ious or mk_iou_tensor(self._anchs, self._gts)
+        if self._best_ious is None:
+            self._best_ious = mk_iou_tensor(self._anchs, self._gts)
         recall_t = self._best_ious > thresh
         recall = recall_t.sum().item() / recall_t.numel()
         return recall
 
     # power mean
     def get_specialty(self, gamma=6, thresh=0.5):
-        self._best_ious = self._best_ious or mk_iou_tensor(self._anchs, self._gts)
+        if self._best_ious is None:
+            self._best_ious = mk_iou_tensor(self._anchs, self._gts)
         valid_ious = self._best_ious[self._best_ious > thresh]
         sp = (valid_ious ** gamma).sum().item() / valid_ious.numel()
         sp = sp ** (1 / gamma)
         return sp
+
+    def get_mean_best_ious(self):
+        if self._best_ious is None:
+            self._best_ious = mk_iou_tensor(self._anchs, self._gts)
+        return self._best_ious.mean().item()
 
 

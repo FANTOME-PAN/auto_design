@@ -1,4 +1,5 @@
-from data import detection_collate_cuda
+from data import detection_collate_cuda, BaseTransform
+from data.voc0712 import VOCDetection, VOC_CLASSES
 import os
 import random
 import torch
@@ -14,7 +15,7 @@ class BoundingBoxesLoader:
                  cache_pth='bounding_boxes_cache.pth'):
         if os.path.exists(cache_pth):
             self.bb_data = torch.load(cache_pth)
-        elif not cache_pth:
+        elif cache_pth:
             self.bb_data = []
             loader = DataLoader(dataset, 512,
                                 collate_fn=detection_collate_cuda)
@@ -51,4 +52,8 @@ class BoundingBoxesLoader:
         return self.IterInstance(self.bb_data, self.b_size, self.shuffle, self.drop_last)
 
 
-
+# if __name__ == '__main__':
+#     rt = 'VOCdevkit\\'
+#     data_set = VOCDetection(rt, (('2007', 'test'),), transform=BaseTransform(300, (104, 117, 123)))
+#     loader = BoundingBoxesLoader(data_set, [i for i in range(len(VOC_CLASSES))],
+#                                  cache_pth='../truths/gts_voc07test.pth')

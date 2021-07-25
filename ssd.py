@@ -224,5 +224,5 @@ def build_ssd(phase, cfg=voc, custom_mbox=None, custom_priors=None):
         return
     base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
                                      add_extras(extras[str(size)], 1024),
-                                     mbox[str(size)] if custom_mbox is None else custom_mbox, num_classes)
+                                     custom_mbox or mbox[str(size)], num_classes)
     return SSD(phase, size, base_, extras_, head_, num_classes, cfg=cfg, priors=custom_priors)
