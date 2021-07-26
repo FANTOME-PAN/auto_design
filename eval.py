@@ -526,7 +526,7 @@ if __name__ == '__main__':
     if args.custom_priors is not None:
         cfg = config_dict[(args.dataset, 'ssd300')]
         params = torch.load(args.custom_priors)
-        params = gen_priors(params, args.prior_types)
+        # params = gen_priors(params, args.prior_types)
         gen = AdaptivePriorBox(cfg, phase='test')
         custom_priors = gen.forward(params)
         custom_mbox = [p.size(0) for p in params]

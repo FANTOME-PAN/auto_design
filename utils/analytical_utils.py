@@ -39,5 +39,14 @@ class AnchorsAnalyzer:
         l1 = l1_tensor.sum(dim=1)
         return l1.mean().item()
 
+    def get_mean_log_ious(self):
+        if self._best_ious is None:
+            self._best_ious = mk_iou_tensor(self._anchs, self._gts)
+        ret = -self._best_ious.clamp_min(0.01).log2().mean().item()
+        return ret
+
+    def get_num_anchors(self):
+        return self._anchs.size(0)
+
 
 
