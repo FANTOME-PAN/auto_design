@@ -41,7 +41,7 @@ def trim(params, iou_thresh=0.8):
 #     return bbox
 
 
-def gen_priors(params, num_types=32, feature_maps=voc['feature_maps']):
+def gen_priors(params, num_types=32, feature_maps=voc['feature_maps'], log=True):
     if isinstance(params, str):
         params = torch.load(params)
     params = trim(params, iou_thresh=0.75)
@@ -49,10 +49,11 @@ def gen_priors(params, num_types=32, feature_maps=voc['feature_maps']):
     weights = torch.tensor(means).softmax(dim=0).tolist()
     # weights = [m / sum(means) for m in means]
     nums = [min(int(round(w * num_types)), params[k].size(0)) for k, w in enumerate(weights)]
-    print('weights by layer: { %s }' % ', '.join(['%.3f' % w for w in weights]))
-    print('types by layer: { %s }' % ', '.join(['%d' % n for n in nums]))
-    print('%d types of priors in total' % sum(nums))
-    print('%d priors in total' % (sum([nums[k] * n * n for k, n in enumerate(feature_maps)])))
+    if log:
+        print('weights by layer: { %s }' % ', '.join(['%.3f' % w for w in weights]))
+        print('types by layer: { %s }' % ', '.join(['%d' % n for n in nums]))
+        print('%d types of priors in total' % sum(nums))
+        print('%d priors in total' % (sum([nums[k] * n * n for k, n in enumerate(feature_maps)])))
     # sort by alpha for every layer
     # params = [p[p[:, -1].sort(detscending=True)[1]] for p in params]
     # keep top-k priors in each layer

@@ -8,13 +8,26 @@ from utils.analytical_utils import *
 from utils.anchor_generator_utils import gen_priors
 
 
-regression = True
+regression = False
 torch.set_default_tensor_type('torch.cuda.FloatTensor')
 gts_pth = r'E:\hwhit aiot project\auto_design\truths\gts_voc07test.pth'
-anchs_pth = r'anchors\voc_baseline.pth'
+baseline_pth = r'anchors\voc_baseline.pth'
 params_pth = r'selection\selected_priors_voc2.1.pth'
+params_pth_lst = [
+    'params\\packup\\params_test2_.pth',
+    'params\\packup\\params_test3_k=20.pth',
+    'params\\packup\\params_test4_k=40.pth',
+    'params\\packup\\params_test5_k=30.pth',
+    'params\\packup\\params_test5.1_k=30.pth',
+    'params\\packup\\params_test6.1_k=25.pth',
+    'params\\packup\\params_test7.1_k=10.pth',
+    'params\\packup\\params_test8.1_k=20.pth',
+    'params\\packup\\params_test10.1_k=20.pth',
+    'selection\\selected_priors_voc2.1.pth'
+]
 
-if __name__ == '__main__':
+
+def main():
     if regression:
         w = torch.ones(6, requires_grad=True)
         # w = torch.load('weights/pred_mAP_l1.pth')
@@ -47,18 +60,50 @@ if __name__ == '__main__':
             print(pred_y)
         torch.save(w, 'weights/r_pred_mAP_l1_3.pth')
     else:
+        results = []
         gts = torch.load(gts_pth).cuda()
-        # anchs = torch.load(anchs_pth).double().cuda()
-        # params = gen_priors(torch.load(params_pth), 32)
-        params = torch.load(params_pth)
-        # tpl = [p.size(0) for p in params]
-        # print('types per layer: [%s]' % ', '.join([str(o) for o in tpl]))
         gen = AdaptivePriorBox(voc, phase='test')
+        print('\t\tnum anchs\tloss\t\tmean log\tmean iou\trecall\t\tspecialty')
+        template = '\t%.0f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f'
+
+        anchs = torch.load(baseline_pth).cuda().double()
+        results.append(_analyze(anchs, gts, False))
+        print('bl' + template % tuple(results[-1].tolist()))
+
+        for pth in params_pth_lst[:-1]:
+            params = gen_priors(torch.load(pth), 32, log=False)
+            anchs = gen.forward(params).double()
+            results.append(_analyze(anchs, gts, False))
+            print('t' + pth[25:].split('_')[0] + template % tuple(results[-1].tolist()))
+
+        pth = params_pth_lst[-1]
+        params = torch.load(pth)
         anchs = gen.forward(params).double()
-        aa = AnchorsAnalyzer(anchs, gts)
-        print('num anchors = %d' % aa.get_num_anchors())
-        print('approx loss = %.4f' % aa.get_approx_loss())
-        print('mean log    = %.4f' % aa.get_mean_log_ious())
-        print('mean best   = %.4f' % aa.get_mean_best_ious())
-        print('recall      = %.4f' % aa.get_recall())
-        print('specialty   = %.4f' % aa.get_specialty())
+        results.append(_analyze(anchs, gts, False))
+        print('voc2' + template % tuple(results[-1].tolist()))
+        results = torch.stack(results)
+        torch.save(results, 'data\\anchs_analysis.pth')
+
+
+def _analyze(anchs, gts, log=True):
+    _t = AnchorsAnalyzer(anchs, gts)
+    ret = torch.tensor([
+        _t.get_num_anchors(),
+        _t.get_approx_loss(),
+        _t.get_mean_log_ious(),
+        _t.get_mean_best_ious(),
+        _t.get_recall(),
+        _t.get_specialty()
+    ])
+    if log:
+        print('num anchors = %.0f' % ret[0].item())
+        print('approx loss = %.4f' % ret[1].item())
+        print('mean log    = %.4f' % ret[2].item())
+        print('mean best   = %.4f' % ret[3].item())
+        print('recall      = %.4f' % ret[4].item())
+        print('specialty   = %.4f' % ret[5].item())
+    return ret
+
+
+if __name__ == '__main__':
+    main()
