@@ -30,11 +30,11 @@ params_pth_lst = [
 
 def main():
     if regression:
-        w = torch.ones(7, requires_grad=True)
+        w = torch.ones(9, requires_grad=True)
         # w = torch.load('weights/pred_mAP_l1.pth')
         # w.requires_grad = True
         with torch.no_grad():
-            w += 1. * (torch.rand(7) - 0.5)
+            w += 1. * (torch.rand(w.size()) - 0.5)
         # gamma = weights[-1]
         # w = weights[:-1]
         # w = torch.tensor([0.21266897022724152, 0.3098817765712738, 1.6114717721939087, 5.077290058135986,
@@ -44,20 +44,20 @@ def main():
             table = torch.tensor([[float(o) for o in l.split()] for l in lines])
         A = table[:, :-1]
         y = table[:, -1]
-        y = torch.exp(y)
+        # y = torch.exp(y)
         opt = optim.Adam([w], lr=0.001)
         for i in range(200000):
             loss = F.smooth_l1_loss(((w[:-1] * A).sum(dim=1) + w[-1]), y, reduction='sum')
             loss.backward()
             opt.step()
             opt.zero_grad()
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 500 == 0:
                 print('iter %d: loss= %.8f' % (i + 1, loss.item()))
         print('weights:\n' + '\t'.join(['%.4f' % o for o in w.tolist()]))
         with torch.no_grad():
             pred_y = ((w[:-1] * A).sum(dim=1) + w[-1])
-            # y = torch.exp(y)
-            # pred_y = torch.exp(pred_y)
+            y = torch.exp(y)
+            pred_y = torch.exp(pred_y)
         print('Y\t\tY*')
         for i, ii in zip(y.tolist(), pred_y.tolist()):
             print('%.4f\t%.4f' % (i, ii))
@@ -66,8 +66,8 @@ def main():
         results = []
         gts = torch.load(gts_pth).cuda()
         gen = AdaptivePriorBox(voc, phase='test')
-        print('\t\tnum anchs\tloss\t\tpower1/3\tmean iou\trecall\t\tpower3')
-        template = '\t%.0f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f'
+        print('\t\tnum anchs\tloss\t\tpower1/3\tgeo mean\tmean iou\trecall\tpower3\tbest gt')
+        template = '\t%.0f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f'
 
         anchs = torch.load(baseline_pth).cuda().double()
         results.append(_analyze(anchs, gts, False))
@@ -94,9 +94,11 @@ def _analyze(anchs, gts, log=True):
         _t.get_num_anchors(),
         _t.get_approx_loss(),
         _t.get_power_mean(1 / 3),
+        _t.get_geometric_mean_iou(),
         _t.get_mean_best_ious(),
         _t.get_recall(),
-        _t.get_specialty()
+        _t.get_specialty(),
+        _t.get_mean_best_gt_iou()
     ])
     if log:
         print('num anchors = %.0f' % ret[0].item())
