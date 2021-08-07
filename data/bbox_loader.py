@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 # return list of data like [[xmin, ymin, xmax, ymax], ... ]
 class BoundingBoxesLoader:
 
-    def __init__(self, dataset, interest, batch_size=32, shuffle=True, drop_last=False,
+    def __init__(self, dataset, interest=None, batch_size=32, shuffle=True, drop_last=False,
                  cache_pth='bounding_boxes_cache.pth'):
         if os.path.exists(cache_pth):
             self.bb_data = torch.load(cache_pth)

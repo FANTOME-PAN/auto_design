@@ -7,10 +7,7 @@ from data.voc0712 import VOCDetection
 from utils.box_utils import jaccard, point_form
 from utils.basic_utils import parse_rec
 
-if torch.__version__ < '1.6.0':
-    torch_bool = torch.uint8
-else:
-    torch_bool = torch.bool
+torch_bool = (torch.ones(1) > 0.).dtype
 
 
 def trim(params, iou_thresh=0.8):
@@ -61,7 +58,7 @@ def gen_priors(params, num_types=32, feature_maps=voc['feature_maps'], log=True)
     return bbox
 
 
-def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4096, ret_idx=False):
+def mk_iou_tensor(anchors: torch.Tensor, gts: torch.Tensor, interval=512, ret_idx=False):
     intervals = [i for i in range(0, gts.size(0), interval)] + [gts.size(0)]
     ret = torch.zeros(gts.size(0))
     idx = None
@@ -70,6 +67,7 @@ def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4
     for start, end in zip(intervals[:-1], intervals[1:]):
         truths = gts[start:end].cuda()
         overlaps = jaccard(truths, anchors)
+        assert torch.isnan(overlaps).sum().item() == 0
         best_prior_overlap, _ = overlaps.max(1, keepdim=False)
         ret[start:end] = best_prior_overlap
         if ret_idx:
@@ -79,7 +77,7 @@ def mk_iou_tensor(anchors: torch.FloatTensor, gts: torch.FloatTensor, interval=4
     return ret
 
 
-class PriorsPool:
+class AnchorsPool:
     @staticmethod
     # sample the given number of annotations from the given dataset
     def __sample(dataset: (VOCDetection, COCODetection), num_samples):
@@ -139,7 +137,7 @@ class PriorsPool:
         self.__end_push = False
         # retrieve samples from the given dataset
         if gts_cache is None or not os.path.exists(gts_cache):
-            sample_list = PriorsPool.__sample(dataset, num_samples)
+            sample_list = AnchorsPool.__sample(dataset, num_samples)
             gts = []
             for sample in sample_list:
                 objs, w, h = parse_rec(sample, with_size=True)
@@ -152,7 +150,7 @@ class PriorsPool:
         else:
             self.gts = torch.load(gts_cache)
         # generate prior boxes for each type. prior_groups[ k ][ l ] = prior boxes of l-th type in layer k
-        self.prior_groups = PriorsPool.__gen_priors(self.prior_types, cfg)
+        self.prior_groups = AnchorsPool.__gen_priors(self.prior_types, cfg)
         # intervals
         self.intervals = [i for i in range(0, self.gts.size(0), interval)] + [self.gts.size(0)]
         self.intervals = [(i, j) for i, j in zip(self.intervals[:-1], self.intervals[1:])]
@@ -259,3 +257,50 @@ class PriorsPool:
         # build record
         self.pool[max_token] = (self.__mk_iou_tensor(max_token), torch.ones(self.gts.size(0), dtype=torch_bool))
         return max_token
+
+
+class AnchorsGenerator:
+    def __init__(self, anchors: torch.Tensor, anch2fmap: dict, fmap2locs: dict, clamp=True):
+        self.anchors = anchors
+        self.anch2fmap = anch2fmap
+        self.fmap2locs = fmap2locs
+        self.clamp = clamp
+        anch_by_fmap = dict(zip(fmap2locs.keys(), [0 for _ in range(len(fmap2locs))]))
+        # count how many types of anchor on each feature map
+        for _, fmap in anch2fmap.items():
+            anch_by_fmap[fmap] += 1
+        # build template, with N * 4 in size. aimed to avoid frequent reallocation of mem
+        self.fmap2anch_template = dict()
+        for (w, h), c in anch_by_fmap.items():
+            rg = w * h * c
+            self.fmap2anch_template[(w, h)] = torch.zeros(rg, 4)
+            # cwh * 4 => c * wh * 4
+            tmp = self.fmap2anch_template[(w, h)][:, :2].view(c, w * h, 2)
+            # wh * 2 => 1 * wh * 2 => c * wh * 2
+            tmp[:] = fmap2locs[(w, h)].unsqueeze(0).expand_as(tmp)
+        # create masks to select all types of anchors on the given feature map.
+        self.fmap2msk = dict(zip(fmap2locs.keys(),
+                                 [torch.zeros(anchors.size()[0], dtype=torch_bool) for _ in range(len(fmap2locs))]))
+        for i, fmap in anch2fmap.items():
+            self.fmap2msk[fmap][i] = 1
+
+    def __call__(self, msk):
+        ret = []
+        for fmap, template in self.fmap2anch_template.items():
+            w, h = fmap
+            fmsk = self.fmap2msk[fmap]
+            anchs = self.anchors[msk & fmsk]
+            template.detach_()
+            # cwh * 4 => c * wh * 4
+            tmp = template[:w * h * anchs.size()[0]].view(anchs.size()[0], w * h, 4)
+            # wh * 2 => c * 1 * 2 => c * wh * 2
+            tmp[:, :, 2:] = anchs.unsqueeze(1).expand(anchs.size()[0], w * h, 2)
+            # add to ret list
+            ret.append(tmp.view(-1, 4))
+        ret = torch.cat(ret, dim=0)
+        if self.clamp:
+            ret.clamp_max_(1.)
+        return ret
+
+
+

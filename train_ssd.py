@@ -19,7 +19,7 @@ import torch.backends.cudnn as cudnn
 import torch.nn.init as init
 import torch.utils.data as data
 from utils.augmentations import SSDAugmentation
-from utils.anchor_generator_utils import gen_priors
+from utils.anchor_utils import gen_priors, AnchorsGenerator
 
 warnings.filterwarnings("ignore")
 with warnings.catch_warnings():
@@ -56,7 +56,7 @@ parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
 parser.add_argument('--gamma', default=0.1, type=float,
                     help='Gamma update for SGD')
-parser.add_argument('--k', default=2.5, type=float,
+parser.add_argument('--k', default=1., type=float,
                     help='weight for the best priors in loss function')
 parser.add_argument('--save_folder', default='weights/',
                     help='Directory for saving checkpoint models')
@@ -100,8 +100,8 @@ def train():
         rt = args.dataset_root or COCO_ROOT
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
-        # cfg = voc
-        cfg = coco_on_voc
+        cfg = voc
+        # cfg = coco_on_voc
         rt = args.dataset_root or VOC_ROOT
         dataset = VOCDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'BCCD':
@@ -119,11 +119,15 @@ def train():
     else:
         raise RuntimeError()
     if args.custom_priors is not None:
-        params = torch.load(args.custom_priors)
-        # bbox = gen_priors(params, args.prior_types, cfg)
-        gen = AdaptivePriorBox(cfg, phase='test')
-        custom_priors = gen.forward(params)
-        custom_mbox = [p.size(0) for p in params]
+        anchs, anch2fmap, fmap2locs, msks = torch.load(args.custom_priors)
+        custom_priors = AnchorsGenerator(anchs, anch2fmap, fmap2locs)(msks[0])
+        print('num_boxes = %d ' % custom_priors.size()[0])
+        custom_mbox = None
+        # params = torch.load(args.custom_priors)
+        # # bbox = gen_priors(params, args.prior_types, cfg)
+        # gen = AdaptivePriorBox(cfg, phase='test')
+        # custom_priors = gen.forward(params)
+        # custom_mbox = [p.size(0) for p in params]
         if args.cuda:
             custom_priors = custom_priors.cuda()
         ssd_net = build_ssd('train', cfg, custom_mbox, custom_priors)

@@ -18,7 +18,7 @@ from data.config import config_dict, vococo
 from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
-from utils.anchor_generator_utils import gen_priors
+from utils.anchor_utils import gen_priors
 from utils.basic_utils import parse_rec
 from ssd import build_ssd
 

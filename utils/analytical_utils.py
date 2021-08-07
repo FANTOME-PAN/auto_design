@@ -1,11 +1,12 @@
 import torch
 
-from utils.anchor_generator_utils import mk_iou_tensor
+from utils.anchor_utils import mk_iou_tensor
 from utils.box_utils import encode
 
 
+# must input anchors in point form
 class AnchorsAnalyzer:
-    def __init__(self, anchors: torch.FloatTensor, gts: torch.FloatTensor):
+    def __init__(self, anchors: torch.Tensor, gts: torch.Tensor):
         self._anchs = anchors
         self._gts = gts
         self._best_ious = None

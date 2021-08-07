@@ -61,14 +61,19 @@ def jaccard(box_a, box_b):
         jaccard overlap: (tensor) Shape: [box_a.size(0), box_b.size(0)]
     """
     inter = intersect(box_a, box_b)
-    torch.isnan(inter).sum().item()
     assert torch.isnan(inter).sum().item() == 0
+    # print('NUM BOXES: %d - %d' % (box_a.size()[0], box_b.size()[0]))
+    # print('inter < 0 : %d' % (inter < 0.).sum().item())
     area_a = ((box_a[:, 2]-box_a[:, 0]) *
               (box_a[:, 3]-box_a[:, 1])).unsqueeze(1).expand_as(inter)  # [A,B]
     area_b = ((box_b[:, 2]-box_b[:, 0]) *
               (box_b[:, 3]-box_b[:, 1])).unsqueeze(0).expand_as(inter)  # [A,B]
+    # print('area A < 0 : %d' % (area_a < 0.).sum().item())
+    # print('area B < 0 : %d' % (area_b < 0.).sum().item())
     union = area_a + area_b - inter
+    # print('union < 0 : %d' % (union < 0.).sum().item())
     assert torch.isnan(union).sum().item() == 0
+    assert (union < 0.).sum().item() == 0
     return inter / union  # [A,B]
 
 

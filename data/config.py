@@ -276,28 +276,8 @@ helmet_lite = {
 
 
 config_dict = {
-    ('VOC07', 'det_net'): voc07_lite,
-    ('VOC', 'det_net'): voc_lite,
-    ('VOC-v2', 'det_net'): voc_lite,
-    ('COCO', 'det_net'): coco_lite,
-    ('helmet', 'det_net'): helmet_lite,
-
-    ('VOC07', 'mobi_ssd'): voc07_mobi,
-    ('VOC', 'mobi_ssd'): voc,
-    ('VOC-v2', 'mobi_ssd'): voc,
-    ('COCO', 'mobi_ssd'): coco18,
-    ('helmet', 'mobi_ssd'): helmet,
-
-    ('VOC07', 'mobi_v2_ssd'): voc_mobi_v2,
-    ('VOC', 'mobi_v2_ssd'): voc_mobi_v2,
-    ('VOC-v2', 'mobi_v2_ssd'): voc_mobi_v2,
-    ('COCO', 'mobi_v2_ssd'): coco_mobi_v2,
-
-    ('VOC07', 'ssd300'): voc07,
-    ('VOC', 'ssd300'): voc,
-    ('VOC-v2', 'ssd300'): voc,
-    ('COCO', 'ssd300'): coco18,
-    ('helmet', 'ssd300'): helmet,
+    'VOC': voc,
+    'COCO': coco
 }
 #
 

@@ -6,7 +6,7 @@ from data.helmet import HelmetDetection, HELMET_CLASSES, HELMET_ROOT
 from data.voc0712 import VOCDetection, VOC_CLASSES, VOC_ROOT
 import torch
 import os
-from utils.anchor_generator_utils import gen_priors, PriorsPool, trim
+from utils.anchor_utils import gen_priors, AnchorsPool, trim
 
 
 parser = argparse.ArgumentParser(
@@ -56,7 +56,7 @@ config = generic
 if __name__ == '__main__':
     params = torch.load(args.priors_pth)
     prior_types = trim(params)
-    pool = PriorsPool(dataset, prior_types, config, args.thresh_types, args.thresh_boxes, gts_cache=args.cache_pth)
+    pool = AnchorsPool(dataset, prior_types, config, args.thresh_types, args.thresh_boxes, gts_cache=args.cache_pth)
 
     sig = 0
     while not sig:
