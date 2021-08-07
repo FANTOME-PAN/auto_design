@@ -18,7 +18,7 @@ from data.config import config_dict, vococo
 from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
-from utils.anchor_utils import gen_priors
+from utils.anchor_utils import gen_priors, AnchorsGenerator
 from utils.basic_utils import parse_rec
 from ssd import build_ssd
 
@@ -524,14 +524,18 @@ if __name__ == '__main__':
     # load net
     num_classes = len(labelmap) + 1  # +1 for background
     if args.custom_priors is not None:
-        cfg = config_dict[(args.dataset, 'ssd300')]
-        params = torch.load(args.custom_priors)
-        params = gen_priors(params, args.prior_types)
-        gen = AdaptivePriorBox(cfg, phase='test')
-        custom_priors = gen.forward(params)
-        custom_mbox = [p.size(0) for p in params]
-        if args.cuda:
-            custom_priors = custom_priors.cuda()
+        cfg = config_dict[args.dataset]
+        # params = torch.load(args.custom_priors)
+        # params = gen_priors(params, args.prior_types)
+        # gen = AdaptivePriorBox(cfg, phase='test')
+        # custom_priors = gen.forward(params)
+        # custom_mbox = [p.size(0) for p in params]
+        anchs, anch2fmap, fmap2locs, msks = torch.load(args.custom_priors)
+        custom_priors = AnchorsGenerator(anchs, anch2fmap, fmap2locs)(msks[0])
+        print('num_boxes = %d ' % custom_priors.size()[0])
+        custom_mbox = None
+        # if args.cuda:
+        #     custom_priors = custom_priors.cuda()
         net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
         cfg = config_dict[(args.dataset, 'ssd300')]
