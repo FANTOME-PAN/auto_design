@@ -11,6 +11,7 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTransform
 from data import HELMET_CLASSES
+from data.adapters import IOAdapterSSD
 from data.bccd import BCCD_CLASSES, BCCD_ROOT, BCCDDetection
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
 from data.coco import COCO_CLASSES, COCO18_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
@@ -525,20 +526,15 @@ if __name__ == '__main__':
     num_classes = len(labelmap) + 1  # +1 for background
     if args.custom_priors is not None:
         cfg = config_dict[args.dataset]
-        # params = torch.load(args.custom_priors)
-        # params = gen_priors(params, args.prior_types)
-        # gen = AdaptivePriorBox(cfg, phase='test')
-        # custom_priors = gen.forward(params)
-        # custom_mbox = [p.size(0) for p in params]
-        anchs, anch2fmap, fmap2locs, msks = torch.load(args.custom_priors)
-        custom_priors = AnchorsGenerator(anchs, anch2fmap, fmap2locs)(msks[0])
-        print('num_boxes = %d ' % custom_priors.size()[0])
+        apt = IOAdapterSSD(cfg, 'test')
+        apt.load(*torch.load(args.custom_priors))
+        custom_priors = apt.fit_output(apt.msks[0])
         custom_mbox = None
         # if args.cuda:
         #     custom_priors = custom_priors.cuda()
         net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
-        cfg = config_dict[(args.dataset, 'ssd300')]
+        cfg = config_dict[args.dataset]
         # from data.config import coco_on_voc
         # cfg = coco_on_voc
         net = build_ssd('test', cfg)  # initialize SSD

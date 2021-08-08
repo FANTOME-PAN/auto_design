@@ -3,7 +3,7 @@ import argparse
 from utils.basic_utils import get_file_name_from_path
 import cv2
 from data import BaseTransform
-from data.adapters import InputAdapterSSD
+from data.adapters import IOAdapterSSD
 from data.bbox_loader import BoundingBoxesLoader
 from data.coco import COCOAnnotationTransform, COCODetection, COCO_ROOT, COCO_CLASSES
 from data.config import config_dict
@@ -95,7 +95,7 @@ test_gts = torch.load(r'truths\gts_voc07test.pth').float().cuda()
 
 def train():
     if args.algo == 'SSD300':
-        apt = InputAdapterSSD(config_dict[args.dataset], args.random_init)
+        apt = IOAdapterSSD(config_dict[args.dataset], args.random_init)
     # args.algo == 'YOLOv3'
     else:
         raise NotImplementedError()

@@ -1,7 +1,7 @@
 import argparse
 from data import *
 from ssd import build_ssd
-from data.adapters import InputAdapterSSD
+from data.adapters import IOAdapterSSD
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
 from data.bccd import BCCD_ROOT, BCCDDetection
 from data.coco import COCO_ROOT, COCODetection, COCOAnnotationTransform
@@ -120,7 +120,7 @@ def train():
     else:
         raise RuntimeError()
     if args.custom_priors is not None:
-        apt = InputAdapterSSD(cfg, 'test')
+        apt = IOAdapterSSD(cfg, 'test')
         apt.load(*torch.load(args.custom_priors))
         custom_priors = apt.fit_output(apt.msks[0])
         print('num_boxes = %d ' % custom_priors.size()[0])

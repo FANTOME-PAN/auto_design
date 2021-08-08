@@ -5,7 +5,7 @@ from torch.nn import Module
 torch_bool = (torch.ones(1) > 0.).dtype
 
 
-class InputAdapter:
+class IOInputAdapter:
     def __init__(self, cfg, phase='train', *args):
         self.cfg = cfg
         self.phase = phase
@@ -21,7 +21,7 @@ class InputAdapter:
         pass
 
 
-class InputAdapterSSD(InputAdapter):
+class IOAdapterSSD(IOInputAdapter):
     def __init__(self, cfg, phase='train', random_range=0.2):
         super().__init__(cfg, phase)
         self.rd = random_range
