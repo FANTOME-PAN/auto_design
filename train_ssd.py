@@ -1,6 +1,7 @@
 import argparse
 from data import *
 from ssd import build_ssd
+from data.adapters import InputAdapterSSD
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
 from data.bccd import BCCD_ROOT, BCCDDetection
 from data.coco import COCO_ROOT, COCODetection, COCOAnnotationTransform
@@ -119,8 +120,9 @@ def train():
     else:
         raise RuntimeError()
     if args.custom_priors is not None:
-        anchs, anch2fmap, fmap2locs, msks = torch.load(args.custom_priors)
-        custom_priors = AnchorsGenerator(anchs, anch2fmap, fmap2locs)(msks[0])
+        apt = InputAdapterSSD(cfg, 'test')
+        apt.load(*torch.load(args.custom_priors))
+        custom_priors = apt.fit_output(apt.msks[0])
         print('num_boxes = %d ' % custom_priors.size()[0])
         custom_mbox = None
         # params = torch.load(args.custom_priors)

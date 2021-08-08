@@ -95,35 +95,13 @@ test_gts = torch.load(r'truths\gts_voc07test.pth').float().cuda()
 
 def train():
     if args.algo == 'SSD300':
-        apt = InputAdapterSSD(config_dict[args.dataset])
-        anch_template, a2f, fmap2locs = apt.fit_input()
+        apt = InputAdapterSSD(config_dict[args.dataset], args.random_init)
     # args.algo == 'YOLOv3'
     else:
         raise NotImplementedError()
 
     # init params
-    p = 0
-    t_size = anch_template.size()[0]
-    anchs = torch.zeros(t_size * 36, 2, requires_grad=True)
-    msks = [torch.zeros(t_size * 36, dtype=torch_bool) for _ in range(8)]
-    anch2fmap = dict()
-    with torch.no_grad():
-        for i in range(8):
-            tmp_anchs = anch_template.repeat(i + 1, 1)
-            sz = tmp_anchs.size()[0]
-            # assign values to anchs
-            anchs[p: p + sz] = tmp_anchs
-
-            # mapping
-            for j in range(sz):
-                anch2fmap[p + j] = a2f[j % t_size]
-            # create mask
-            msks[i][p: p + sz] = 1
-            # mv pointer
-            p += tmp_anchs.size()[0]
-        # random
-        rd = 1. + (2. * torch.rand(anchs.size()) - 1.) * args.random_init
-        anchs *= rd
+    anchs, anch2fmap, fmap2locs, msks = apt.fit_input()
 
     # create data loader
     data_loader = BoundingBoxesLoader(dataset, None, args.batch_size, shuffle=True,
