@@ -30,10 +30,12 @@ def main():
             table = torch.tensor([[float(o) for o in l.split()] for l in lines])
         A = table[:, :-1]
         y = table[:, -1]
+        noise = torch.zeros(y.size(), requires_grad=True)
         # y = torch.exp(y)
-        opt = optim.Adam([w], lr=0.001)
+        opt = optim.Adam([w, noise], lr=0.001)
         for i in range(30000):
-            loss = F.smooth_l1_loss(((w[:-1] * A).sum(dim=1) + w[-1]), y, reduction='sum')
+            loss = F.smooth_l1_loss(((w[:-1] * A).sum(dim=1) + w[-1]) + noise, y, reduction='sum') \
+                   + (100. * noise ** 2).sum()
             loss.backward()
             opt.step()
             opt.zero_grad()
@@ -45,8 +47,8 @@ def main():
             # y = torch.exp(y)
             # pred_y = torch.exp(pred_y)
         print('Y\t\tY*')
-        for i, ii in zip(y.tolist(), pred_y.tolist()):
-            print('%.4f\t%.4f' % (i, ii))
+        for i, ii, n in zip(y.tolist(), pred_y.tolist(), noise.detach().tolist()):
+            print('%.4f\t%.4f\t%.6f' % (i, ii, n))
         torch.save(w, 'weights/r_pred_mAP_l1_3.pth')
     else:
         results = []
@@ -115,7 +117,7 @@ def predict(anchors, gts, verbose=False):
 
 
 if __name__ == '__main__':
-    regression = False
+    regression = True
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     gts_pth = r'truths\gts_voc07test.pth'
     baseline_pth = r'anchors\voc_baseline.pth'
