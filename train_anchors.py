@@ -51,7 +51,7 @@ parser.add_argument('--algo', default='SSD300', choices=['SSD300', 'YOLOv3'],
 parser.add_argument('--mode', default='train', type=str, help='')
 parser.add_argument('--cuda', default='True', type=str2bool,
                     help='Use CUDA to train model')
-parser.add_argument('--batch_size', default=256, type=int,
+parser.add_argument('--batch_size', default=1024, type=int,
                     help='Batch size for training')
 parser.add_argument('--truths_pth', default='truths/trainval_voc.pth',
                     help='cache for truths of given dataset')
@@ -61,7 +61,7 @@ parser.add_argument('--cmp_pth', default=None,
                     help='the path of the target to be compared')
 parser.add_argument('--test_per_cache', default='False', type=str2bool,
                     help='test the current priors after every caching')
-parser.add_argument('--cache_interval', default=1000, type=int,
+parser.add_argument('--cache_interval', default=200, type=int,
                     help='Batch size for training')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
@@ -120,16 +120,16 @@ def train():
     gen_fn = AnchorsGenerator(anchs, anch2fmap, fmap2locs)
     step = 0
     # train
-    for iteration in range(30000):
+    for iteration in range(10000):
         try:
             truths = next(b_iter)
         except StopIteration:
             b_iter = iter(data_loader)
             truths = next(b_iter)
 
-        if iteration in (5000, 10000, 15000, 20000, 25000):
+        if iteration in (5000, 7500):
             step += 1
-            adjust_learning_rate(optimizer, 0.5, step)
+            adjust_learning_rate(optimizer, 0.1, step)
         truths = truths.float().cuda() if args.cuda else truths.float()
 
         optimizer.zero_grad()

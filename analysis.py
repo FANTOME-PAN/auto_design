@@ -1,3 +1,4 @@
+from data.adapters import IOAdapterSSD
 from data.config import voc
 from layers.functions.prior_box import AdaptivePriorBox
 import math
@@ -52,12 +53,17 @@ def main():
         gts = torch.load(gts_pth).cuda()
         gen = AdaptivePriorBox(voc, phase='test')
         print('\t\tloss\t\tpower1/3\tgeo mean\tmean iou\trecall\tpower3\tbest gt')
-        template = '\t%.0f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f'
+        template = '\t%.4f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f'
 
         anchs = torch.load(baseline_pth).cuda().double()
         results.append(_analyze(anchs, gts, False))
         print('bl' + template % tuple(results[-1].tolist()))
         print('pred = %.4f' % predict(anchs, gts))
+        apt = IOAdapterSSD(voc, 'test')
+        apt.load(*torch.load(r'cache/params_voc_iter1800.pth'))
+        anchs = apt.fit_output(apt.msks[0])
+        results.append(_analyze(anchs, gts, False))
+        print('new' + template % tuple(results[-1].tolist()))
         for pth in params_pth_lst[:-1]:
             params = gen_priors(torch.load(pth), 32, log=False)
             anchs = gen.forward(params).double()

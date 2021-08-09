@@ -530,8 +530,8 @@ if __name__ == '__main__':
         apt.load(*torch.load(args.custom_priors))
         custom_priors = apt.fit_output(apt.msks[0])
         custom_mbox = None
-        # if args.cuda:
-        #     custom_priors = custom_priors.cuda()
+        if args.cuda:
+            custom_priors = custom_priors.cuda()
         net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
         cfg = config_dict[args.dataset]

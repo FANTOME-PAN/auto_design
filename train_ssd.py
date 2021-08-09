@@ -134,7 +134,10 @@ def train():
             custom_priors = custom_priors.cuda()
         ssd_net = build_ssd('train', cfg, custom_mbox, custom_priors)
     else:
-        ssd_net = build_ssd('train', cfg)
+        priors = torch.load('anchors/voc_baseline.pth')
+        if args.cuda:
+            priors = priors.cuda()
+        ssd_net = build_ssd('train', cfg, None, priors)
     net = ssd_net
 
     if args.cuda:

@@ -131,14 +131,6 @@ class IOAdapterSSD(IOInputAdapter):
             # n * 2 => 1 * n * 2 => wh * n * 2
             right2 = fmap2anchs[fmap].unsqueeze(0).expand(wh, n, 2)
             ret.append(torch.cat([left2, right2], dim=2).view(-1, 4))
-        # bl = torch.load(r'E:\hwhit aiot project\auto_design\anchors\voc_baseline.pth')
-        # raw = bl[:, :2].cuda()
-        # new = torch.cat(ret, dim=0)[:, :2]
-        # s = ((raw - new).abs() > 1e-5).nonzero().flatten()
-        # print('\n'.join(['%.4f, %.4f' % (x, y) for x, y in raw[s].tolist()]))
-        # print('\n\n')
-        # print('\n'.join(['%.4f, %.4f' % (x, y) for x, y in new[s].tolist()]))
-        # tmp = (raw - new).sum()
         return torch.cat(ret, dim=0)
 
 
