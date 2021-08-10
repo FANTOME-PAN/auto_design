@@ -2,6 +2,7 @@ from itertools import product
 from math import sqrt
 import torch
 from torch.nn import Module
+
 torch_bool = (torch.ones(1) > 0.).dtype
 
 
@@ -77,19 +78,19 @@ class IOAdapterSSD(IOInputAdapter):
         anchors_template = torch.stack(anchors_template)
         return anchors_template, a2f, fmap2locs
 
-    def fit_input(self):
+    def fit_input(self, muls=(1, 2, 3, 4, 5, 6, 7, 8)):
         if self.__fit_in:
             return self.anchors, self.anch2fmap, self.fmap2locs, self.msks
         anch_template, a2f, fmap2locs = self.__build_template()
         # init params
         p = 0
         t_size = anch_template.size()[0]
-        anchs = torch.zeros(t_size * 36, 2, requires_grad=True)
-        msks = [torch.zeros(t_size * 36, dtype=torch_bool) for _ in range(8)]
+        anchs = torch.zeros(t_size * sum(muls), 2, requires_grad=True)
+        msks = [torch.zeros(t_size * sum(muls), dtype=torch_bool) for _ in range(len(muls))]
         anch2fmap = dict()
         with torch.no_grad():
-            for i in range(8):
-                tmp_anchs = anch_template.repeat(i + 1, 1)
+            for i, m in enumerate(muls):
+                tmp_anchs = anch_template.repeat(m, 1)
                 sz = tmp_anchs.size()[0]
                 # assign values to anchs
                 anchs[p: p + sz] = tmp_anchs
@@ -132,6 +133,3 @@ class IOAdapterSSD(IOInputAdapter):
             right2 = fmap2anchs[fmap].unsqueeze(0).expand(wh, n, 2)
             ret.append(torch.cat([left2, right2], dim=2).view(-1, 4))
         return torch.cat(ret, dim=0)
-
-
-

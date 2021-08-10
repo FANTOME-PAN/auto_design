@@ -124,7 +124,8 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
     return best_prior_msk
 
 
-def encode(matched, priors, variances):
+def \
+        encode(matched, priors, variances):
     """Encode the variances from the priorbox layers into the ground truth boxes
     we have matched (based on jaccard overlap) with the prior boxes.
     Args:

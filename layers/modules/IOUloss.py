@@ -39,6 +39,7 @@ class IOULoss(nn.Module):
                 + self.beta * sigmoid_alphas.sum()) / x_filter.sum()
 
 
+# loss_fn_3 = mean iou + recall + power1/3
 class MixedIOULoss:
     def __init__(self):
         pass
@@ -53,12 +54,58 @@ class MixedIOULoss:
         # assert isinstance(best_prior_overlap, torch.FloatTensor)
         best_prior_overlap.clamp_min_(0.001)
         l1 = best_prior_overlap.mean()
-        # l2 = (best_prior_overlap ** (1 / 3.)).mean()
-        l2 = best_prior_overlap.log().mean().exp()
-        # l3 = (best_prior_overlap ** 3).mean()
-        # loss = -(l1.log() + l2.log() * 3 + l3.log() * (1. / 3))
-        loss = -(l1.log() + l2.log())
+        l2 = (best_prior_overlap[best_prior_overlap <= 0.5]).mean()
+        l3 = (best_prior_overlap ** (1. / 3)).mean()
+        # approx ssd loss loss
+
+        loss = -(l1.log() + l2.log() + l3.log() * 3)
         return loss
+
+
+# loss_fn_2 = 0.5 * mean iou + recall + power3
+# mAP = 0.7517
+# class MixedIOULoss:
+#     def __init__(self):
+#         pass
+#
+#     def __call__(self, anchors: torch.Tensor, truths):
+#         overlaps = jaccard(
+#             truths,
+#             point_form(anchors)
+#         )  # size [num_truths, num_priors]
+#         # [1,num_objects] best prior for each ground truth
+#         best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=False)
+#         # assert isinstance(best_prior_overlap, torch.FloatTensor)
+#         best_prior_overlap.clamp_min_(0.001)
+#         l1 = best_prior_overlap.mean()
+#         l2 = (best_prior_overlap[best_prior_overlap <= 0.5]).mean()
+#         l3 = (best_prior_overlap ** 3).mean()
+#         loss = -(0.5 * l1.log() + l2.log() + l3.log() * (1. / 3))
+#         return loss
+
+
+# loss_fn_1 = geometric mean iou + mean iou
+# mAP = 0.7550
+# class MixedIOULoss:
+#     def __init__(self):
+#         pass
+#
+#     def __call__(self, anchors: torch.Tensor, truths):
+#         overlaps = jaccard(
+#             truths,
+#             point_form(anchors)
+#         )  # size [num_truths, num_priors]
+#         # [1,num_objects] best prior for each ground truth
+#         best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=False)
+#         # assert isinstance(best_prior_overlap, torch.FloatTensor)
+#         best_prior_overlap.clamp_min_(0.001)
+#         l1 = best_prior_overlap.mean()
+#         # l2 = (best_prior_overlap ** (1 / 3.)).mean()
+#         l2 = best_prior_overlap.log().mean().exp()
+#         # l3 = (best_prior_overlap ** 3).mean()
+#         # loss = -(l1.log() + l2.log() * 3 + l3.log() * (1. / 3))
+#         loss = -(l1.log() + l2.log())
+#         return loss
 
 
 class AdaptivePBLossDebug(IOULoss):

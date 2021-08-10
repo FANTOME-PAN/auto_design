@@ -21,21 +21,22 @@ def main():
         # w.requires_grad = True
         with torch.no_grad():
             w += 1. * (torch.rand(w.size()) - 0.5)
+            w[0] = -w[0]
         # gamma = weights[-1]
         # w = weights[:-1]
         # w = torch.tensor([0.21266897022724152, 0.3098817765712738, 1.6114717721939087, 5.077290058135986,
         #                   -0.6393837928771973, -1.5633304119110107, 0.792957067489624, 3.666994094848633])
-        with open('data\\anchors_data.txt', 'r') as f:
+        with open('data\\anchors_data_reduced.txt', 'r') as f:
             lines = f.readlines()
             table = torch.tensor([[float(o) for o in l.split()] for l in lines])
-        A = table[:, :-1]
-        y = table[:, -1]
+        A = table[:, :-1].log()
+        y = table[:, -1].log()
         noise = torch.zeros(y.size(), requires_grad=True)
         # y = torch.exp(y)
         opt = optim.Adam([w, noise], lr=0.001)
         for i in range(30000):
             loss = F.smooth_l1_loss(((w[:-1] * A).sum(dim=1) + w[-1]) + noise, y, reduction='sum') \
-                   + (100. * noise ** 2).sum()
+                   + (0.1 * noise ** 2).sum()
             loss.backward()
             opt.step()
             opt.zero_grad()
@@ -44,8 +45,8 @@ def main():
         print('weights:\n' + '\t'.join(['%.4f' % o for o in w.tolist()]))
         with torch.no_grad():
             pred_y = ((w[:-1] * A).sum(dim=1) + w[-1])
-            # y = torch.exp(y)
-            # pred_y = torch.exp(pred_y)
+            y = torch.exp(y)
+            pred_y = torch.exp(pred_y)
         print('Y\t\tY*')
         for i, ii, n in zip(y.tolist(), pred_y.tolist(), noise.detach().tolist()):
             print('%.4f\t%.4f\t%.6f' % (i, ii, n))

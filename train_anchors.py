@@ -101,7 +101,7 @@ def train():
         raise NotImplementedError()
 
     # init params
-    anchs, anch2fmap, fmap2locs, msks = apt.fit_input()
+    anchs, anch2fmap, fmap2locs, msks = apt.fit_input((1,))
 
     # create data loader
     data_loader = BoundingBoxesLoader(dataset, None, args.batch_size, shuffle=True,
