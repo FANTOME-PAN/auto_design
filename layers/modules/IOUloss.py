@@ -57,8 +57,12 @@ class MixedIOULoss:
         l2 = (best_prior_overlap[best_prior_overlap <= 0.5]).mean()
         l3 = (best_prior_overlap ** (1. / 3)).mean()
         # approx ssd loss loss
-
-        loss = -(l1.log() + l2.log() + l3.log() * 3)
+        diff_wh = (truths[:, 2:] - truths[:, :2]) / anchors[:, 2:]
+        diff_wh = diff_wh.log().abs()
+        diff_wh = torch.where(diff_wh < 1., 0.5 * diff_wh ** 2, diff_wh - 0.5)
+        l4 = diff_wh.sum(dim=1).mean()
+        loss = -(l1.log() + l2.log() + l3.log() * 3) + l4
+        print('ratio = %.4f' % (loss.item() / l4.item()))
         return loss
 
 
