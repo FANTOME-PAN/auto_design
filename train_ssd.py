@@ -110,7 +110,7 @@ def train():
         rt = args.dataset_root or BCCD_ROOT
         dataset = BCCDDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'SHWD':
-        cfg = bccd
+        cfg = shwd
         rt = args.dataset_root or SHWD_ROOT
         dataset = SHWDDetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'helmet':

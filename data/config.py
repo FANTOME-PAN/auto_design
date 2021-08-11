@@ -29,8 +29,8 @@ voc = {
 
 bccd = {
     'num_classes': 4,
-    'lr_steps': (40000, 50000, 60000),
-    'max_iter': 60000,
+    'lr_steps': (20000, 25000, 30000),
+    'max_iter': 30000,
     'feature_maps': [38, 19, 10, 5, 3, 1],
     'min_dim': 300,
     'steps': [8, 16, 32, 64, 100, 300],
@@ -45,8 +45,8 @@ bccd = {
 
 shwd = {
     'num_classes': 3,
-    'lr_steps': (40000, 50000, 60000),
-    'max_iter': 60000,
+    'lr_steps': (20000, 25000, 30000),
+    'max_iter': 30000,
     'feature_maps': [38, 19, 10, 5, 3, 1],
     'min_dim': 300,
     'steps': [8, 16, 32, 64, 100, 300],
@@ -277,7 +277,9 @@ helmet_lite = {
 
 config_dict = {
     'VOC': voc,
-    'COCO': coco
+    'COCO': coco,
+    'BCCD': bccd,
+    'SHWD': shwd
 }
 #
 
