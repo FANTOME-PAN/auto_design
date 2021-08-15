@@ -44,7 +44,11 @@ parser.add_argument('--random_init', default=0.2, type=float,
                     help='give a random init value for each variables. This parameter can control '
                          'the range of random value, based on the original parameters from config.'
                          'e.g., the range of init value is {k}, if set to 0; [0.8k,1.2k], if set to 0.2.')
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
+parser.add_argument('--ignore_size', default=0.04, type=float,
+                    help='ignore all truths whose size(w or h) are less tha ignore_size')
+parser.add_argument('--l', default=10, type=float,
+                    help='the value of hyper-parameter lambda')
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO', 'BCCD', 'SHWD'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--algo', default='SSD300', choices=['SSD300', 'YOLOv3'],
                     type=str, help='SSD300 or YOLOv3')
@@ -91,6 +95,11 @@ if args.cuda:
 dataset = None
 clamp = True
 test_gts = torch.load(r'truths\gts_voc07test.pth').float().cuda()
+bl = torch.load('anchors/voc_baseline.pth')
+bl = bl.cuda()
+bl_y, bl_a = predict(bl, test_gts, True)
+bl_results = 'baseline = %.4f [loss:%.2f|power1/3:%.4f|geo mean:%.4f|mean:%.4f|recall:%.4f|power3:%.4f|best gt:%.4f]'\
+             % (bl_y, *bl_a)
 
 
 def train():
@@ -115,19 +124,19 @@ def train():
                           weight_decay=args.weight_decay)
 
     # create loss function
-    loss_fn = MixedIOULoss()
+    loss_fn = MixedIOULoss(ignore_size=args.ignore_size, lambda_=args.l)
 
     gen_fn = AnchorsGenerator(anchs, anch2fmap, fmap2locs)
     step = 0
     # train
-    for iteration in range(10000):
+    for iteration in range(3000):
         try:
             truths = next(b_iter)
         except StopIteration:
             b_iter = iter(data_loader)
             truths = next(b_iter)
 
-        if iteration in (5000, 7500):
+        if iteration in (2000, 2500):
             step += 1
             adjust_learning_rate(optimizer, 0.1, step)
         truths = truths.float().cuda() if args.cuda else truths.float()
@@ -155,6 +164,7 @@ def train():
             torch.save((anchs, anch2fmap, fmap2locs, msks), pth)
             print('save cache to %s ' % pth)
             if args.test_per_cache:
+                print(bl_results)
                 with torch.no_grad():
                     maps = []
                     for i, msk in enumerate(msks):

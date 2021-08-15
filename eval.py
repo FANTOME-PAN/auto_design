@@ -16,7 +16,7 @@ from data.bccd import BCCD_CLASSES, BCCD_ROOT, BCCDDetection
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
 from data.coco import COCO_CLASSES, COCO18_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
 from data.config import config_dict, vococo
-from data.shwd import SHWD_CLASSES, SHWD_ROOT, SHWDDetection
+from data.shwd import SHWD_ROOT, SHWD_CLASSES, SHWDDetection
 from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
 from utils.evaluations import get_conf_gt, output_detection_result
@@ -44,7 +44,7 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
-parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'BCCD', 'SHWD'],
+parser.add_argument('--dataset', default='helmet', choices=['VOC', 'COCO', 'SHWD', 'helmet'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--trained_model',
                     default='weights/ssd300_mAP_77.43_v2.pth', type=str,
@@ -123,14 +123,6 @@ elif args.dataset == 'VOC':
     imgsetpath = os.path.join(root, 'VOC2007', 'ImageSets', 'Main') + '/{:s}.txt'
     YEAR = '2007'
     devkit_path = root + 'VOC' + YEAR
-    set_type = args.set_type or 'test'
-elif args.dataset == 'BCCD':
-    labelmap = BCCD_CLASSES
-    root = args.dataset_root or BCCD_ROOT
-    annopath = os.path.join(root, 'Annotations', '%s.xml')
-    imgpath = os.path.join(root, 'JPEGImages', '%s.jpg')
-    imgsetpath = os.path.join(root, 'ImageSets', 'Main') + '/{:s}.txt'
-    devkit_path = root
     set_type = args.set_type or 'test'
 elif args.dataset == 'SHWD':
     labelmap = SHWD_CLASSES
@@ -242,7 +234,7 @@ def do_python_eval(output_dir='output', use_07=True):
     for i, cls in enumerate(labelmap):
         filename = get_voc_results_file_template(set_type, cls)
         rec, prec, ap = voc_eval(
-            filename, annopath, imgsetpath.format(set_type), cls.lower().replace(' ', ''), cachedir,
+            filename, annopath, imgsetpath.format(set_type), cls, cachedir,
             ovthresh=0.5, use_07_metric=use_07_metric)
         aps += [ap]
         print('AP for {} = {:.4f}'.format(cls, ap))
@@ -347,7 +339,8 @@ cachedir: Directory for caching the annotations
                 continue
             recs[imagename] = rec
             for obj in recs[imagename]:
-                obj['name'] = obj['name'].lower().replace(' ', '')
+                # change 'helmet-on' and 'helmet-off' to 'helmet_on' and 'helmet_off'
+                obj['name'] = obj['name'].replace('-', '_')
             # if i % 100 == 0:
             #     print('Reading annotation for {:d}/{:d}'.format(
             #        i + 1, len(imagenames)))
@@ -364,9 +357,9 @@ cachedir: Directory for caching the annotations
     class_recs = {}
     npos = 0
     for imagename in imagenames:
-        R = [obj for obj in recs[imagename] if obj['name'] == classname]
+        R = [obj for obj in recs[imagename] if obj['name'].replace(' ', '') == classname]
         bbox = np.array([x['bbox'] for x in R])
-        difficult = np.array([x['difficult'] for x in R]).astype(np.bool_)
+        difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
         npos = npos + sum(~difficult)
         class_recs[imagename] = {'bbox': bbox,
@@ -537,12 +530,15 @@ if __name__ == '__main__':
         apt = IOAdapterSSD(cfg, 'test')
         apt.load(*torch.load(args.custom_priors))
         custom_priors = apt.fit_output(apt.msks[0])
+        print('num_boxes = %d ' % custom_priors.size()[0])
         custom_mbox = None
         if args.cuda:
             custom_priors = custom_priors.cuda()
         net = build_ssd('test', cfg, custom_mbox, custom_priors)
     else:
         cfg = config_dict[args.dataset]
+        # from data.config import coco_on_voc
+        # cfg = coco_on_voc
         net = build_ssd('test', cfg)  # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
@@ -556,10 +552,20 @@ if __name__ == '__main__':
         dataset = VOCDetection(root, [('2007', set_type)],
                                BaseTransform(300, dataset_mean),
                                VOCAnnotationTransform())
-    elif args.dataset == 'BCCD':
-        dataset = BCCDDetection(root, (set_type,), BaseTransform(300, dataset_mean))
     elif args.dataset == 'SHWD':
         dataset = SHWDDetection(root, (set_type,), BaseTransform(300, dataset_mean))
+    # elif args.dataset == 'VOC07':
+    #     dataset = VOCDetection(root, [('2007', set_type)],
+    #                            BaseTransform(300, dataset_mean),
+    #                            VOCAnnotationTransform())
+    # elif args.dataset == 'VOC-v2':
+    #     dataset = VOCDetection(root, [('2012', set_type)],
+    #                            BaseTransform(300, dataset_mean),
+    #                            VOCAnnotationTransform())
+    elif args.dataset == 'COCO18':
+        dataset = COCODetection(root, [('18', set_type)],
+                                BaseTransform(300, dataset_mean),
+                                COCOAnnotationTransform('COCO18'))
 
     if args.cuda:
         net = net.cuda()

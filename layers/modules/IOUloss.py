@@ -41,27 +41,39 @@ class IOULoss(nn.Module):
 
 # loss_fn_3 = mean iou + recall + power1/3
 class MixedIOULoss:
-    def __init__(self):
+    def __init__(self, ignore_size=0.03, lambda_=10.):
+        self.igs = ignore_size
+        self.decay = 1.
         pass
 
     def __call__(self, anchors: torch.Tensor, truths):
+        # filter out too small objects
+        truths_wh = truths[:, 2:] - truths[:, :2]
+        msk = (truths_wh[:, 0] < self.igs) | (truths_wh[:, 1] < self.igs)
+        truths = truths[~msk]
+        truths_wh = truths_wh[~msk]
+        # compute IOUs
         overlaps = jaccard(
             truths,
             point_form(anchors)
         )  # size [num_truths, num_priors]
         # [1,num_objects] best prior for each ground truth
         best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=False)
-        # assert isinstance(best_prior_overlap, torch.FloatTensor)
-        best_prior_overlap.clamp_min_(0.001)
         l1 = best_prior_overlap.mean()
         l2 = (best_prior_overlap[best_prior_overlap <= 0.5]).mean()
         l3 = (best_prior_overlap ** (1. / 3)).mean()
         # approx ssd loss loss
-        diff_wh = (truths[:, 2:] - truths[:, :2]) / anchors[best_prior_idx, 2:]
-        diff_wh = diff_wh.log().abs()
-        diff_wh = torch.where(diff_wh < 1., 0.5 * diff_wh ** 2, diff_wh - 0.5)
-        l4 = diff_wh.sum(dim=1).mean() * 10
-        loss = -(l1.log() + l2.log() + l3.log() * 3) + l4
+        # diff_wh = anchors[best_prior_idx, 2:] / truths_wh
+        # diff_wh = diff_wh.log().abs()
+        # diff_wh = torch.where(diff_wh < 1., 0.5 * diff_wh ** 2, diff_wh - 0.5)
+        # l4 = diff_wh.sum(dim=1).mean() * self.l
+        # loss = (-(l1.log() + l2.log() + l3.log() * 3) + l4) / 4.
+        loss = -(l1.log() + l2.log() + l3.log() * 3) / 3.
+        if self.decay > 0.01:
+            best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=False)
+            l0 = -best_truth_overlap.mean().log()
+            loss = l0 * self.decay + loss * (1. - self.decay)
+            self.decay *= 0.9
         return loss
 
 

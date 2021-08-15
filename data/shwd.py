@@ -10,7 +10,7 @@ SHWD_ROOT = 'D:\\dataset pan\\SHWD\\'
 
 class SHWDDetection(VOCDetection):
     def __init__(self, root, image_sets=('train', ), transform=None,
-                 target_transform=VOCAnnotationTransform(dict(zip(SHWD_CLASSES, range(len(SHWD_CLASSES))))),
+                 target_transform=VOCAnnotationTransform(dict(zip(SHWD_CLASSES, range(len(SHWD_CLASSES)))), True),
                  dataset_name='SHWD'):
         super().__init__(root, tuple(), transform, target_transform, dataset_name)
         for name in image_sets:

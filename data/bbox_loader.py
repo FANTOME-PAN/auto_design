@@ -1,4 +1,6 @@
 from data import detection_collate_cuda, BaseTransform
+from data.bccd import BCCD_ROOT, BCCDDetection, BCCD_CLASSES
+from data.shwd import SHWD_ROOT, SHWDDetection, SHWD_CLASSES
 from data.voc0712 import VOCDetection, VOC_CLASSES
 import os
 import random
@@ -52,8 +54,8 @@ class BoundingBoxesLoader:
         return self.IterInstance(self.bb_data, self.b_size, self.shuffle, self.drop_last)
 
 
-# if __name__ == '__main__':
-#     rt = 'VOCdevkit\\'
-#     data_set = VOCDetection(rt, (('2007', 'test'),), transform=BaseTransform(300, (104, 117, 123)))
-#     loader = BoundingBoxesLoader(data_set, [i for i in range(len(VOC_CLASSES))],
-#                                  cache_pth='../truths/gts_voc07test.pth')
+if __name__ == '__main__':
+    rt = SHWD_ROOT
+    data_set = SHWDDetection(root=rt, image_sets=('trainval', ), transform=BaseTransform(300, (104, 117, 123)))
+    loader = BoundingBoxesLoader(data_set, [i for i in range(len(SHWD_CLASSES))],
+                                 cache_pth='../truths/gts_shwd_trainval.pth')

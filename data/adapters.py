@@ -6,7 +6,7 @@ from torch.nn import Module
 torch_bool = (torch.ones(1) > 0.).dtype
 
 
-class IOInputAdapter:
+class IOAdapter:
     def __init__(self, cfg, phase='train', *args):
         self.cfg = cfg
         self.phase = phase
@@ -22,7 +22,7 @@ class IOInputAdapter:
         pass
 
 
-class IOAdapterSSD(IOInputAdapter):
+class IOAdapterSSD(IOAdapter):
     def __init__(self, cfg, phase='train', random_range=0.2):
         super().__init__(cfg, phase)
         self.rd = random_range
@@ -114,7 +114,7 @@ class IOAdapterSSD(IOInputAdapter):
             self.fit_input()
         if msk is None:
             msk = torch.ones(self.anchors.size()[0])
-        msk = msk.nonzero().flatten().tolist()
+        msk = torch.nonzero(msk, as_tuple=False).flatten().tolist()
         # reverse dict
         fmap2anchs = dict(zip(self.fmap2locs.keys(), [[] for _ in range(len(self.fmap2locs))]))
         for i in msk:
