@@ -35,7 +35,7 @@ COCO_CLASSES = (
 )
 
 # note: if you used our download scripts, this should be right
-COCO_ROOT = osp.join(HOME, "E:\\coco\\")
+COCO_ROOT = 'D:\\datasets\\ms coco\\'
 
 
 class COCOAnnotationTransform(object):

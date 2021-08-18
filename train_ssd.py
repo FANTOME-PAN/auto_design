@@ -96,10 +96,11 @@ def train():
         dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS),
                                 target_transform=COCOAnnotationTransform('COCO18'))
     elif args.dataset == 'COCO':
-        cfg = coco18
+        cfg = coco
         # cfg = vococo
         rt = args.dataset_root or COCO_ROOT
-        dataset = COCODetection(root=rt, transform=SSDAugmentation(cfg['min_dim'], MEANS))
+        dataset = COCODetection(root=rt, image_sets=(('2014', 'trainval35k'),),
+                                transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         cfg = voc
         # cfg = coco_on_voc

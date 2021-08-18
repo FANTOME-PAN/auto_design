@@ -94,7 +94,7 @@ if args.cuda:
 
 dataset = None
 clamp = True
-test_gts = torch.load(r'truths\gts_voc07test.pth').float().cuda()
+test_gts = torch.load(r'truths\gts_coco_minival.pth').float().cuda()
 bl = torch.load('anchors/voc_baseline.pth')
 bl = bl.cuda()
 bl_y, bl_a = predict(bl, test_gts, True)
@@ -129,14 +129,14 @@ def train():
     gen_fn = AnchorsGenerator(anchs, anch2fmap, fmap2locs)
     step = 0
     # train
-    for iteration in range(3000):
+    for iteration in range(6000):
         try:
             truths = next(b_iter)
         except StopIteration:
             b_iter = iter(data_loader)
             truths = next(b_iter)
 
-        if iteration in (2000, 2500):
+        if iteration in (4000, 5000):
             step += 1
             adjust_learning_rate(optimizer, 0.1, step)
         truths = truths.float().cuda() if args.cuda else truths.float()

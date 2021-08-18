@@ -1,7 +1,8 @@
 from data import detection_collate_cuda, BaseTransform
 from data.bccd import BCCD_ROOT, BCCDDetection, BCCD_CLASSES
+from data.coco import COCO_ROOT, COCODetection,  COCO_CLASSES
 from data.shwd import SHWD_ROOT, SHWDDetection, SHWD_CLASSES
-from data.voc0712 import VOCDetection, VOC_CLASSES
+from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
 import os
 import random
 import torch
@@ -55,7 +56,7 @@ class BoundingBoxesLoader:
 
 
 if __name__ == '__main__':
-    rt = SHWD_ROOT
-    data_set = SHWDDetection(root=rt, image_sets=('trainval', ), transform=BaseTransform(300, (104, 117, 123)))
-    loader = BoundingBoxesLoader(data_set, [i for i in range(len(SHWD_CLASSES))],
-                                 cache_pth='../truths/gts_shwd_trainval.pth')
+    rt = VOC_ROOT
+    data_set = VOCDetection(root=rt, image_sets=(('2012', 'test'), ), transform=BaseTransform(300, (104, 117, 123)))
+    loader = BoundingBoxesLoader(data_set, [i for i in range(len(VOC_CLASSES))],
+                                 cache_pth='../truths/gts_voc_12test.pth')
