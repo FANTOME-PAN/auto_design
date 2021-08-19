@@ -475,7 +475,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
                 detections = net(x)
 
             if args.write_det_results:
-                det_results += get_detection_result(dataset.ids[1], detections, h, w, labelmap)
+                det_results += get_detection_result(dataset.ids[i][1], detections, h, w, labelmap)
 
             if args.save_dets:
                 res_lst[dataset.ids[i][1]] = detections[0].cpu()
@@ -514,7 +514,9 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
         if args.save_dets:
             torch.save(res_lst, 'ssd_detections_%s.pkl' % args.set_type)
         if args.write_det_results:
-            torch.save(det_results, args.save_folder + datetime.now().strftime('%Y-%m-%d_%H:%M'))
+            torch.save(det_results, args.save_folder + 'detection_results' + datetime.now().strftime('%Y-%m-%d_%H:%M')
+                       + '.pth')
+            return
         if not args.output_mAP:
             return
         with open(det_file, 'wb') as f:
