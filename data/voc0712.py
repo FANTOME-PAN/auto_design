@@ -108,7 +108,7 @@ class VOCDetection(data.Dataset):
     def __init__(self, root,
                  image_sets=[('2007', 'trainval'), ('2012', 'trainval')],
                  transform=None, target_transform=VOCAnnotationTransform(),
-                 dataset_name='VOC0712'):
+                 dataset_name='VOC0712', no_anno=False):
         self.root = root
         self.image_set = image_sets
         self.transform = transform
@@ -117,6 +117,7 @@ class VOCDetection(data.Dataset):
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
         self.ids = list()
+        self.no_anno = no_anno
         for (year, name) in image_sets:
             rootpath = osp.join(self.root, 'VOC' + year)
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
@@ -132,16 +133,19 @@ class VOCDetection(data.Dataset):
         return len(self.ids)
 
     def pull_item(self, index):
-        img_id = self.ids[index]
 
-        target = ET.parse(self._annopath % img_id).getroot()
+        img_id = self.ids[index]
         img = cv2.imread(self._imgpath % img_id)
         height, width, channels = img.shape
+        if self.no_anno:
+            img, _, _ = self.transform(img)
+            # to rgb
+            img = img[:, :, (2, 1, 0)]
+            return torch.from_numpy(img).permute(2, 0, 1), None, height, width
 
+        target = ET.parse(self._annopath % img_id).getroot()
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
-            if len(target) == 0:
-                return None, None, height, width
 
         if self.transform is not None:
             target = np.array(target)
@@ -151,7 +155,6 @@ class VOCDetection(data.Dataset):
             # img = img.transpose(2, 0, 1)
             target = np.hstack((boxes, np.expand_dims(labels, axis=1)))
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
-        # return torch.from_numpy(img), target, height, width
 
     def pull_image(self, index):
         '''Returns the original image object at index in PIL form

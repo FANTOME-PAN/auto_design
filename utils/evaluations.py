@@ -147,6 +147,24 @@ def output_detection_result(img_path, ids, detections, h, w, classes=HELMET_CLAS
     cv2.imwrite(path, img)
 
 
+def get_detection_result(img_name, detections, h, w, classes=HELMET_CLASSES, score_thresh=0.01):
+    ret = []
+    dets = decode_raw_detection(detections, h, w)
+    for cls_idx in range(len(classes)):
+        det = dets[cls_idx]
+        for i in range(det.size(0)):
+            score = det[i, 0].item()
+            if score <= score_thresh:
+                continue
+            xx1, yy1, xx2, yy2 = det[i, 1:].type(torch.int).tolist()
+            ret.append({
+                'img_name': img_name,
+                'cat_name': classes[cls_idx],
+                'bbox': (xx1, yy1, xx2, yy2),
+                'score': score
+            })
+    return ret
+
 # assume that ssd_output is from the output of the SSD net in 'train' phase
 # returns batch_num * num_layers * num_classes
 # ON CPU

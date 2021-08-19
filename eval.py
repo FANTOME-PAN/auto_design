@@ -17,9 +17,10 @@ from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_
 from data.coco import COCO_CLASSES, COCO18_CLASSES, COCODetection, COCOAnnotationTransform, COCO_ROOT
 from data.config import config_dict, vococo
 from data.shwd import SHWD_ROOT, SHWD_CLASSES, SHWDDetection
+from datetime import datetime
 from layers.functions.prior_box import AdaptivePriorBox
 import torch.utils.data as data
-from utils.evaluations import get_conf_gt, output_detection_result
+from utils.evaluations import get_conf_gt, output_detection_result, get_detection_result
 from utils.anchor_utils import gen_priors, AnchorsGenerator
 from utils.basic_utils import parse_rec
 from ssd import build_ssd
@@ -67,6 +68,8 @@ parser.add_argument('--cuda', default=True, type=str2bool,
 #                     help='Location of VOC root directory')
 parser.add_argument('--write_imgs', default=False, type=str2bool,
                     help='write results')
+parser.add_argument('--write_det_results', default=False, type=str2bool,
+                    help='only write detection results, no evaluation')
 parser.add_argument('--cleanup', default=True, type=str2bool,
                     help='Cleanup and remove results files following eval')
 parser.add_argument('--load_dets', default=False, type=str2bool,
@@ -114,7 +117,14 @@ elif args.dataset == 'COCO18':
     imgpath = os.path.join(root, 'coco18', 'JPEGImages', '%s.jpg')
     imgsetpath = os.path.join(root, 'coco18', 'ImageSets', 'Main') + '/{:s}.txt'
     devkit_path = root + 'coco18'
-    set_type = args.set_type or 'test'
+elif args.dataset == 'COCO':
+    labelmap = COCO_CLASSES
+    root = args.dataset_root or COCO_ROOT
+    annopath = os.path.join(root, 'coco2017', 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, 'coco2017', 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, 'coco2017', 'ImageSets', 'Main') + '/{:s}.txt'
+    devkit_path = root + 'coco2017'
+    set_type = args.set_type or 'test-dev'
 elif args.dataset == 'VOC':
     labelmap = VOC_CLASSES
     root = args.dataset_root or VOC_ROOT
@@ -443,7 +453,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     #    (x1, y1, x2, y2, score)
     all_boxes = [[[] for _ in range(num_images)]
                  for _ in range(len(labelmap) + 1)]
-
+    det_results = []
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     output_dir = get_output_dir('ssd300_120000', set_type)
@@ -453,7 +463,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     if not args.load_dets:
         for i in range(num_images):
             im, gt, h, w = dataset.pull_item(i)
-            if gt is None:
+            if not args.write_det_results and gt is None:
                 print('All difficult objects: %s' % dataset.ids[i][1])
                 difficult_lst.append('ln %d : %s' % (i + 1, dataset.ids[i][1]))
                 continue
@@ -463,8 +473,10 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
             _t['im_detect'].tic()
             with torch.no_grad():
                 detections = net(x)
-            # get_conf_gt(detections, h, w, annopath % dataset.ids[i][1],
-            #             cls_to_ind=dataset.target_transform.class_to_ind)
+
+            if args.write_det_results:
+                det_results += get_detection_result(dataset.ids[1], detections, h, w, labelmap)
+
             if args.save_dets:
                 res_lst[dataset.ids[i][1]] = detections[0].cpu()
                 print('%s saved' % dataset.ids[i][1])
@@ -477,7 +489,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
             detect_time = _t['im_detect'].toc(average=False)
 
             # skip j = 0, because it's the background class
-            if args.output_mAP:
+            if args.output_mAP and not args.write_det_results:
                 for j in range(1, detections.size(1)):
                     dets = detections[0, j, :]
                     mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
@@ -501,6 +513,8 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
         # print('\n'.join(difficult_lst))
         if args.save_dets:
             torch.save(res_lst, 'ssd_detections_%s.pkl' % args.set_type)
+        if args.write_det_results:
+            torch.save(det_results, args.save_folder + datetime.now().strftime('%Y-%m-%d_%H:%M'))
         if not args.output_mAP:
             return
         with open(det_file, 'wb') as f:
@@ -543,6 +557,7 @@ if __name__ == '__main__':
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
+    no_anno = args.write_det_results
     # load data
     if args.dataset == 'helmet':
         dataset = HelmetDetection(root, [('s2', set_type)],
@@ -551,7 +566,7 @@ if __name__ == '__main__':
     elif args.dataset == 'VOC':
         dataset = VOCDetection(root, [('2007', set_type)],
                                BaseTransform(300, dataset_mean),
-                               VOCAnnotationTransform())
+                               VOCAnnotationTransform(), no_anno=no_anno)
     elif args.dataset == 'SHWD':
         dataset = SHWDDetection(root, (set_type,), BaseTransform(300, dataset_mean))
     # elif args.dataset == 'VOC07':
@@ -566,6 +581,9 @@ if __name__ == '__main__':
         dataset = COCODetection(root, [('18', set_type)],
                                 BaseTransform(300, dataset_mean),
                                 COCOAnnotationTransform('COCO18'))
+    elif args.dataset == 'COCO':
+        dataset = COCODetection(root, [('2017', set_type)],
+                                BaseTransform(300, dataset_mean), no_anno=no_anno)
 
     if args.cuda:
         net = net.cuda()

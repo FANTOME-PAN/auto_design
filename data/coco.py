@@ -110,7 +110,7 @@ class COCODetection(data.Dataset):
     def __init__(self, root,
                  image_sets=(('18', 'trainval'),),
                  transform=None, target_transform=COCOAnnotationTransform(),
-                 dataset_name='COCO'):
+                 dataset_name='COCO', no_anno=False):
         self.root = root
         self.image_set = image_sets
         self.transform = transform
@@ -118,6 +118,7 @@ class COCODetection(data.Dataset):
         self.name = dataset_name
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
+        self.no_anno = no_anno
         self.ids = list()
         for year, name in image_sets:
             rootpath = osp.join(self.root, 'coco' + year)
@@ -134,11 +135,15 @@ class COCODetection(data.Dataset):
 
     def pull_item(self, index):
         img_id = self.ids[index]
-
-        target = ET.parse(self._annopath % img_id).getroot()
         img = cv2.imread(self._imgpath % img_id)
         height, width, channels = img.shape
+        if self.no_anno:
+            img, _, _ = self.transform(img)
+            # to rgb
+            img = img[:, :, (2, 1, 0)]
+            return torch.from_numpy(img).permute(2, 0, 1), None, height, width
 
+        target = ET.parse(self._annopath % img_id).getroot()
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)
 
@@ -150,7 +155,6 @@ class COCODetection(data.Dataset):
             # img = img.transpose(2, 0, 1)
             target = np.hstack((boxes, np.expand_dims(labels, axis=1)))
         return torch.from_numpy(img).permute(2, 0, 1), target, height, width
-        # return torch.from_numpy(img), target, height, width
 
     def pull_image(self, index):
         '''Returns the original image object at index in PIL form
