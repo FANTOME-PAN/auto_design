@@ -54,7 +54,7 @@ parser.add_argument('--save_folder', default='eval/', type=str,
                     help='File path to save results')
 parser.add_argument('--dataset_root', default=None,
                     help='Dataset root directory path')
-parser.add_argument('--set_type', default='test',
+parser.add_argument('--set_type', default=None,
                     help='Name of the test list')
 parser.add_argument('--confidence_threshold', default=0.01, type=float,
                     help='Detection confidence threshold')
