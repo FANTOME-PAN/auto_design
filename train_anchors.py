@@ -3,7 +3,7 @@ import argparse
 from utils.basic_utils import get_file_name_from_path
 import cv2
 from data import BaseTransform
-from data.adapters import IOAdapterSSD
+from data.adapters import IOAdapterSSD, IOAdapterYOLOv3
 from data.bbox_loader import BoundingBoxesLoader
 from data.coco import COCOAnnotationTransform, COCODetection, COCO_ROOT, COCO_CLASSES
 from data.config import config_dict
@@ -107,7 +107,7 @@ def train():
         apt = IOAdapterSSD(config_dict[args.dataset], args.random_init)
     # args.algo == 'YOLOv3'
     else:
-        raise NotImplementedError()
+        apt = IOAdapterYOLOv3(random_range=args.random_init)
 
     # init params
     anchs, anch2fmap, fmap2locs, msks = apt.fit_input((1,))
