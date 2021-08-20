@@ -352,12 +352,6 @@ cachedir: Directory for caching the annotations
                 print('dirty: ' + imagename)
                 continue
             recs[imagename] = rec
-            for obj in recs[imagename]:
-                # change 'helmet-on' and 'helmet-off' to 'helmet_on' and 'helmet_off'
-                obj['name'] = obj['name'].replace('-', '_')
-            # if i % 100 == 0:
-            #     print('Reading annotation for {:d}/{:d}'.format(
-            #        i + 1, len(imagenames)))
         # save
         # print('Saving cached annotations to {:s}'.format(cachefile))
         with open(cachefile, 'wb') as f:
@@ -371,7 +365,7 @@ cachedir: Directory for caching the annotations
     class_recs = {}
     npos = 0
     for imagename in imagenames:
-        R = [obj for obj in recs[imagename] if obj['name'].replace(' ', '') == classname]
+        R = [obj for obj in recs[imagename] if obj['name'] == classname]
         bbox = np.array([x['bbox'] for x in R])
         difficult = np.array([x['difficult'] for x in R]).astype(np.bool)
         det = [False] * len(R)
