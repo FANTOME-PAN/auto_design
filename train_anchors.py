@@ -178,6 +178,8 @@ def train():
         fmap2locs[fmap] = locs.cpu()
     msks = [msk.cpu() for msk in msks]
     torch.save((anchs.detach().cpu(), anch2fmap, fmap2locs, msks), args.save_pth)
+    if args.algo == 'YOLOv3':
+        print(apt.fit_output())
 
 
 def adjust_learning_rate(optimizer, gamma, step):
