@@ -120,11 +120,15 @@ elif args.dataset == 'COCO18':
 elif args.dataset == 'COCO':
     labelmap = COCO_CLASSES
     root = args.dataset_root or COCO_ROOT
-    annopath = os.path.join(root, 'coco2017', 'Annotations', '%s.xml')
-    imgpath = os.path.join(root, 'coco2017', 'JPEGImages', '%s.jpg')
-    imgsetpath = os.path.join(root, 'coco2017', 'ImageSets', 'Main') + '/{:s}.txt'
-    devkit_path = root + 'coco2017'
-    set_type = args.set_type or 'test-dev'
+    if args.set_type is not None:
+        year, set_type = args.set_type.split(',')
+    else:
+        year, set_type = '2017', 'test-dev'
+    sub_dir = 'coco' + year
+    annopath = os.path.join(root, sub_dir, 'Annotations', '%s.xml')
+    imgpath = os.path.join(root, sub_dir, 'JPEGImages', '%s.jpg')
+    imgsetpath = os.path.join(root, sub_dir, 'ImageSets', 'Main') + '/{:s}.txt'
+    devkit_path = root + sub_dir
 elif args.dataset == 'VOC':
     labelmap = VOC_CLASSES
     root = args.dataset_root or VOC_ROOT
@@ -514,8 +518,8 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
         if args.save_dets:
             torch.save(res_lst, 'ssd_detections_%s.pkl' % args.set_type)
         if args.write_det_results:
-            torch.save(det_results, args.save_folder + 'detection_results' + datetime.now().strftime('%Y-%m-%d_%H:%M')
-                       + '.pth')
+            name = datetime.now().strftime('%Y-%m-%d_%H-%M')
+            torch.save(det_results, args.save_folder + 'detection_results%s.pth' % name)
             return
         if not args.output_mAP:
             return
@@ -584,7 +588,7 @@ if __name__ == '__main__':
                                 BaseTransform(300, dataset_mean),
                                 COCOAnnotationTransform('COCO18'))
     elif args.dataset == 'COCO':
-        dataset = COCODetection(root, [('2017', set_type)],
+        dataset = COCODetection(root, [(year, set_type)],
                                 BaseTransform(300, dataset_mean), no_anno=no_anno)
 
     if args.cuda:

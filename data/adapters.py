@@ -15,7 +15,7 @@ class IOAdapter:
         self.anch2fmap = None
         self.fmap2locs = None
         self.msks = None
-        self.__fit_in = False
+        self.fit_in = False
 
     def convert_from_config(self):
         raise NotImplementedError('Please implement this method (convert_from_config) '
@@ -24,10 +24,10 @@ class IOAdapter:
     def load(self, anchs: torch.Tensor, anch2fmap, fmap2locs, msks):
         self.anchors, self.anch2fmap, self.fmap2locs, self.msks = anchs, anch2fmap, fmap2locs, msks
         self.anchors.requires_grad = self.phase == 'train'
-        self.__fit_in = True
+        self.fit_in = True
 
     def fit_input(self, muls=(1, 2, 3, 4, 5, 6, 7, 8)):
-        if self.__fit_in:
+        if self.fit_in:
             return self.anchors, self.anch2fmap, self.fmap2locs, self.msks
         anch_template, a2f, fmap2locs = self.convert_from_config()
         # init params
@@ -54,7 +54,7 @@ class IOAdapter:
             rd = 1. + (2. * torch.rand(anchs.size()) - 1.) * self.rd
             anchs *= rd
         self.anchors, self.anch2fmap, self.fmap2locs, self.msks = anchs, anch2fmap, fmap2locs, msks
-        self.__fit_in = True
+        self.fit_in = True
         return anchs, anch2fmap, fmap2locs, msks
 
     def fit_output(self, msk=None):
@@ -62,6 +62,9 @@ class IOAdapter:
 
 
 class IOAdapterSSD(IOAdapter):
+    def __init__(self, cfg, phase='train', random_range=0.2):
+        super().__init__(cfg, phase, random_range)
+
     def convert_from_config(self):
         fmap2locs = dict([((f, f), []) for f in self.cfg['feature_maps']])
         a2f = dict()
@@ -104,7 +107,7 @@ class IOAdapterSSD(IOAdapter):
         return anchors_template, a2f, fmap2locs
 
     def fit_output(self, msk=None) -> torch.Tensor:
-        if not self.__fit_in:
+        if not self.fit_in:
             self.fit_input()
         if msk is None:
             msk = torch.ones(self.anchors.size()[0])
@@ -156,7 +159,7 @@ class IOAdapterYOLOv3(IOAdapter):
         return anchors_template, a2f, fmap2locs
 
     def fit_output(self, msk=None):
-        if not self.__fit_in:
+        if not self.fit_in:
             self.fit_input()
         whs = []
         scaled_anchors = self.anchors * 416.

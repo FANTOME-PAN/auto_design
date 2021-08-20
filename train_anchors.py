@@ -59,6 +59,8 @@ parser.add_argument('--batch_size', default=1024, type=int,
                     help='Batch size for training')
 parser.add_argument('--truths_pth', default='truths/trainval_voc.pth',
                     help='cache for truths of given dataset')
+parser.add_argument('--eval_pth', default='truths/trainval_voc.pth',
+                    help='cache for truths of evaluation dataset')
 parser.add_argument('--save_pth', default='params/params_voc.pth',
                     help='save path')
 parser.add_argument('--cmp_pth', default=None,
@@ -94,7 +96,7 @@ if args.cuda:
 
 dataset = None
 clamp = True
-test_gts = torch.load(r'truths\gts_coco_minival.pth').float().cuda()
+test_gts = torch.load(args.eval_pth).float().cuda()
 bl = torch.load('anchors/voc_baseline.pth')
 bl = bl.cuda()
 bl_y, bl_a = predict(bl, test_gts, True)
