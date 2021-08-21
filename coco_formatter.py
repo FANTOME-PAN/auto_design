@@ -1,6 +1,7 @@
 from data.coco import COCO_ROOT
 import json
 import torch
+import numpy as np
 
 
 ## 修改这里的绝对地址 ##
@@ -38,6 +39,20 @@ for det in dets:
 del dets
 # keep top-k bboxes, k=100
 k = 100
+id2bboxes = dict()
+for i, d in enumerate(formatted):
+    if d['image_id'] not in id2bboxes.keys():
+        id2bboxes[d['image_id']] = []
+    id2bboxes[d['image_id']].append(i)
+for img_id, ids in id2bboxes.items():
+    ids_ar = np.array(ids)
+    scores = np.array([formatted[i]['score'] for i in ids])
+    sorted_ids = scores.argsort()[::-1]
+    scores = scores[sorted_ids]
+    ids_ar = ids_ar[sorted_ids]
+    id2bboxes[img_id] = np.array(ids)[np.array([formatted[i]['score'] for i in ids]).argsort()[::-1]][:100]
+
+formatted = np.array(formatted)[np.concatenate(list(id2bboxes.values()))].tolist()
 
 with open(save_path, 'w') as f:
     json.dump(formatted, f, separators=(',', ':'))
