@@ -32,8 +32,8 @@ for det in dets:
         'image_id': img_name2id[img_name],
         'category_id': cat_name2id[cat_name],
         'bbox': [round(x, 1), round(y, 1), round(width, 1), round(height, 1)],
-        'score': score
+        'score': round(score, 3)
     })
 
 with open(save_path, 'w') as f:
-    json.dump(formatted, f)
+    json.dump(formatted, f, separators=[',', ':'])

@@ -473,7 +473,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
                 detections = net(x)
 
             if args.write_det_results:
-                det_results += get_detection_result(dataset.ids[i][1], detections, h, w, labelmap)
+                det_results += get_detection_result(dataset.ids[i][1], detections, h, w, labelmap, score_thresh=0.001)
 
             if args.save_dets:
                 res_lst[dataset.ids[i][1]] = detections[0].cpu()
