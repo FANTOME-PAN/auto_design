@@ -45,12 +45,7 @@ for i, d in enumerate(formatted):
         id2bboxes[d['image_id']] = []
     id2bboxes[d['image_id']].append(i)
 for img_id, ids in id2bboxes.items():
-    ids_ar = np.array(ids)
-    scores = np.array([formatted[i]['score'] for i in ids])
-    sorted_ids = scores.argsort()[::-1]
-    scores = scores[sorted_ids]
-    ids_ar = ids_ar[sorted_ids]
-    id2bboxes[img_id] = np.array(ids)[np.array([formatted[i]['score'] for i in ids]).argsort()[::-1]][:100]
+    id2bboxes[img_id] = np.array(ids)[np.array([formatted[i]['score'] for i in ids]).argsort()[::-1]][:k]
 
 formatted = np.array(formatted)[np.concatenate(list(id2bboxes.values()))].tolist()
 
