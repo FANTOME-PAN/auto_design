@@ -26,14 +26,14 @@ for det in dets:
     if isinstance(score, str):
         score = float(score)
         xmin, ymin, xmax, ymax = float(xmin), float(ymin), float(xmax), float(ymax)
-    x = (xmax + xmin) / 2.
-    y = (ymax + ymin) / 2.
-    width = xmax - xmin
-    height = ymax - ymin
+    x = round(xmin, 1)
+    y = round(ymin, 1)
+    width = round(xmax - xmin, 1)
+    height = round(ymax - ymin, 1)
     formatted.append({
         'image_id': img_name2id[img_name],
         'category_id': cat_name2id[cat_name],
-        'bbox': [round(x, 1), round(y, 1), round(width, 1), round(height, 1)],
+        'bbox': [x, y, width, height],
         'score': round(score, 3)
     })
 del dets
