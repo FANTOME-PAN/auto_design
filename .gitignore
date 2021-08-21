@@ -6,3 +6,5 @@ runs/*
 *.pkl
 *.rar
 *.pth
+*.json
+*.zip

@@ -6,11 +6,11 @@ import numpy as np
 
 ## 修改这里的绝对地址 ##
 ## CHANGE PATH HERE ##
-detection_results_path = r'eval\detection_results2021-08-21_11-06.pth'
-save_path = r'.\detections_val2017_ssdopt_results.json'
+detection_results_path = r'eval\test-dev2017 detection_results2021-08-21_03-55.pth'
+save_path = r'.\detections_test-dev2017_ssdopt_results.json'
 ##       END        ##
-# anno_pth =COCO_ROOT + r'coco2017\Annotations\image_info_test-dev2017.json'
-anno_pth = r'D:\COCO\annotations_train2017\annotations\instances_val2017.json'
+anno_pth =COCO_ROOT + r'coco2017\Annotations\image_info_test-dev2017.json'
+# anno_pth = r'D:\COCO\annotations_train2017\annotations\instances_val2017.json'
 with open(anno_pth, 'r') as f:
     anno = json.load(f)
 img_name2id = dict([(o['file_name'].rstrip('.jpg'), o['id']) for o in anno['images']])
