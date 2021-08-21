@@ -5,7 +5,7 @@ import torch
 
 ## 修改这里的绝对地址 ##
 ## CHANGE PATH HERE ##
-detection_results_path = r''
+detection_results_path = r'eval\detection_results2021-08-20_14-10.pth'
 save_path = r'.\detections_test-dev2017_ssdopt_results.json'
 ##       END        ##
 

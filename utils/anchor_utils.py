@@ -284,7 +284,9 @@ class AnchorsGenerator:
         for i, fmap in anch2fmap.items():
             self.fmap2msk[fmap][i] = 1
 
-    def __call__(self, msk):
+    def __call__(self, msk=None):
+        if msk is None:
+            msk = torch.ones(self.anchors.size()[0], dtype=torch_bool)
         ret = []
         for fmap, template in self.fmap2anch_template.items():
             w, h = fmap
