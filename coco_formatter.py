@@ -5,11 +5,12 @@ import torch
 
 ## 修改这里的绝对地址 ##
 ## CHANGE PATH HERE ##
-detection_results_path = r'eval\detection_results2021-08-20_14-10.pth'
-save_path = r'.\detections_test-dev2017_ssdopt_results.json'
+detection_results_path = r'eval\detection_results2021-08-21_11-06.pth'
+save_path = r'.\detections_val2017_ssdopt_results.json'
 ##       END        ##
-
-with open(COCO_ROOT + r'coco2017\Annotations\image_info_test-dev2017.json', 'r') as f:
+# anno_pth =COCO_ROOT + r'coco2017\Annotations\image_info_test-dev2017.json'
+anno_pth = r'D:\COCO\annotations_train2017\annotations\instances_val2017.json'
+with open(anno_pth, 'r') as f:
     anno = json.load(f)
 img_name2id = dict([(o['file_name'].rstrip('.jpg'), o['id']) for o in anno['images']])
 cat_name2id = dict([(o['name'], o['id']) for o in anno['categories']])
@@ -34,6 +35,9 @@ for det in dets:
         'bbox': [round(x, 1), round(y, 1), round(width, 1), round(height, 1)],
         'score': round(score, 3)
     })
+del dets
+# keep top-k bboxes, k=100
+k = 100
 
 with open(save_path, 'w') as f:
-    json.dump(formatted, f, separators=[',', ':'])
+    json.dump(formatted, f, separators=(',', ':'))
