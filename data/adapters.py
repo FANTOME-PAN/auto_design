@@ -2,6 +2,7 @@ from itertools import product
 from math import sqrt
 import torch
 from torch.nn import Module
+from utils.anchor_utils import AnchorsGenerator
 
 torch_bool = (torch.ones(1) > 0.).dtype
 
@@ -10,12 +11,13 @@ class IOAdapter:
     def __init__(self, cfg, phase='train', random_range=0.2):
         self.cfg = cfg
         self.phase = phase
-        self.rd = random_range
+        self.rd = random_range if phase == 'train' else 0.
         self.anchors = None
         self.anch2fmap = None
         self.fmap2locs = None
         self.msks = None
         self.fit_in = False
+        self._gen_fn = None
 
     def convert_from_config(self):
         raise NotImplementedError('Please implement this method (convert_from_config) '
@@ -26,7 +28,7 @@ class IOAdapter:
         self.anchors.requires_grad = self.phase == 'train'
         self.fit_in = True
 
-    def fit_input(self, muls=(1, 2, 3, 4, 5, 6, 7, 8)):
+    def fit_input(self, muls=(1,)):
         if self.fit_in:
             return self.anchors, self.anch2fmap, self.fmap2locs, self.msks
         anch_template, a2f, fmap2locs = self.convert_from_config()
@@ -59,6 +61,13 @@ class IOAdapter:
 
     def fit_output(self, msk=None):
         raise NotImplementedError('Please implement this method (fit_output) in the subclass inheriting this class')
+
+    def get_gen_fn(self):
+        if not self.fit_in:
+            self.fit_input()
+        if self._gen_fn is None:
+            self._gen_fn = AnchorsGenerator(self.anchors, self.anch2fmap, self.fmap2locs)
+        return self._gen_fn
 
 
 class IOAdapterSSD(IOAdapter):

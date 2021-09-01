@@ -56,7 +56,7 @@ class BoundingBoxesLoader:
 
 
 if __name__ == '__main__':
-    rt = VOC_ROOT
-    data_set = VOCDetection(root=rt, image_sets=(('2012', 'test'), ), transform=BaseTransform(300, (104, 117, 123)))
+    rt = COCO_ROOT
+    data_set = COCODetection(root=rt, image_sets=(('2017', 'val'), ), transform=BaseTransform(300, (104, 117, 123)))
     loader = BoundingBoxesLoader(data_set, [i for i in range(len(VOC_CLASSES))],
-                                 cache_pth='../truths/gts_voc_12test.pth')
+                                 cache_pth='../truths/gts_coco_17val.pth')

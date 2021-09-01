@@ -35,7 +35,7 @@ COCO_CLASSES = (
 )
 
 # note: if you used our download scripts, this should be right
-COCO_ROOT = 'D:\\datasets\\ms coco\\'
+COCO_ROOT = 'D:\\datasets\\ms_coco\\'
 
 
 class COCOAnnotationTransform(object):
@@ -124,10 +124,11 @@ class COCODetection(data.Dataset):
             rootpath = osp.join(self.root, 'coco' + year)
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
                 self.ids.append((rootpath, line.strip()))
+        self.cached_hws = dict()
 
     def __getitem__(self, index):
         im, gt, h, w = self.pull_item(index)
-
+        self.cached_hws[index] = (h, w)
         return im, gt
 
     def __len__(self):

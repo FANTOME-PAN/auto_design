@@ -99,7 +99,7 @@ def train():
         cfg = coco
         # cfg = vococo
         rt = args.dataset_root or COCO_ROOT
-        dataset = COCODetection(root=rt, image_sets=(('2014', 'trainval35k'),),
+        dataset = COCODetection(root=rt, image_sets=(('2017', 'train'),),
                                 transform=SSDAugmentation(cfg['min_dim'], MEANS))
     elif args.dataset == 'VOC':
         cfg = voc
@@ -135,10 +135,10 @@ def train():
             custom_priors = custom_priors.cuda()
         ssd_net = build_ssd('train', cfg, custom_mbox, custom_priors)
     else:
-        priors = torch.load('anchors/voc_baseline.pth')
-        if args.cuda:
-            priors = priors.cuda()
-        ssd_net = build_ssd('train', cfg, None, priors)
+        # priors = torch.load('anchors/voc_baseline.pth')
+        # if args.cuda:
+        #     priors = priors.cuda()
+        ssd_net = build_ssd('train', cfg)
     net = ssd_net
 
     if args.cuda:

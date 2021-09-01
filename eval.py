@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from data import HELMET_ROOT, HelmetAnnotationTransform, HelmetDetection, BaseTransform
-from data import HELMET_CLASSES
+from data import HELMET_CLASSES, detection_collate_cuda
 from data.adapters import IOAdapterSSD
 from data.bccd import BCCD_CLASSES, BCCD_ROOT, BCCDDetection
 from data.voc0712 import VOC_CLASSES, VOCDetection, VOCAnnotationTransform, VOC_ROOT
@@ -59,6 +59,8 @@ parser.add_argument('--set_type', default=None,
 parser.add_argument('--confidence_threshold', default=0.01, type=float,
                     help='Detection confidence threshold')
 parser.add_argument('--top_k', default=5, type=int,
+                    help='Further restrict the number of predictions to parse')
+parser.add_argument('--batch_size', default=256, type=int,
                     help='Further restrict the number of predictions to parse')
 parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use cuda to train model')
@@ -458,55 +460,106 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     det_file = os.path.join(output_dir, 'detections.pkl')
     res_lst = {}
     difficult_lst = []
+    data_loader = data.DataLoader(dataset, args.batch_size, shuffle=False, collate_fn=detection_collate_cuda)
     if not args.load_dets:
-        for i in range(num_images):
-            im, gt, h, w = dataset.pull_item(i)
-            if not args.write_det_results and gt is None:
-                print('All difficult objects: %s' % dataset.ids[i][1])
-                difficult_lst.append('ln %d : %s' % (i + 1, dataset.ids[i][1]))
-                continue
-            x = im.unsqueeze(0)
+        for batch_idx, batch in enumerate(data_loader):
+            imgs, targets = batch
+            print('detecting %d images...' % imgs.size()[0])
             if args.cuda:
-                x = x.cuda()
-            _t['im_detect'].tic()
+                imgs = imgs.cuda()
             with torch.no_grad():
-                detections = net(x)
+                batch_detections = net(imgs)
+            print('finished')
 
-            if args.write_det_results:
-                det_results += get_detection_result(dataset.ids[i][1], detections, h, w, labelmap, score_thresh=0.001)
+            for ii in range(imgs.size()[0]):
+                _t['im_detect'].tic()
+                i = args.batch_size * batch_idx + ii
+                detections = batch_detections[ii].unsqueeze(0)
+                h, w = dataset.cached_hws[i]
+                if args.write_det_results:
+                        det_results += get_detection_result(dataset.ids[i][1], detections, h, w,
+                                                            labelmap, score_thresh=0.01)
+                if args.save_dets:
+                    res_lst[dataset.ids[i][1]] = detections[0].cpu()
+                    print('%s saved' % dataset.ids[i][1])
+                if args.write_imgs:
+                    _imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
+                    _annopath = os.path.join('%s', 'Annotations', '%s.xml')
+                    output_detection_result(_imgpath, dataset.ids[i], detections, h, w, classes=labelmap,
+                                            score_thresh=0.5,
+                                            out_dir='./eval/%s/bignet_output_thresh50' % args.dataset,
+                                            annopath=_annopath, show=False)
 
-            if args.save_dets:
-                res_lst[dataset.ids[i][1]] = detections[0].cpu()
-                print('%s saved' % dataset.ids[i][1])
-            if args.write_imgs:
-                _imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
-                _annopath = os.path.join('%s', 'Annotations', '%s.xml')
-                output_detection_result(_imgpath, dataset.ids[i], detections, h, w, classes=labelmap, score_thresh=0.5,
-                                        out_dir='./eval/%s/bignet_output_thresh50' % args.dataset,
-                                        annopath=_annopath, show=False)
-            detect_time = _t['im_detect'].toc(average=False)
+                # skip j = 0, because it's the background class
+                if args.output_mAP and not args.write_det_results:
+                    for j in range(1, detections.size(1)):
+                        dets = detections[0, j, :]
+                        mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
+                        dets = torch.masked_select(dets, mask).view(-1, 5)
+                        if dets.size(0) == 0:
+                            continue
+                        boxes = dets[:, 1:]
+                        boxes[:, 0] *= w
+                        boxes[:, 2] *= w
+                        boxes[:, 1] *= h
+                        boxes[:, 3] *= h
+                        scores = dets[:, 0].cpu().numpy()
+                        cls_dets = np.hstack((boxes.cpu().numpy(),
+                                              scores[:, np.newaxis])).astype(np.float32,
+                                                                             copy=False)
+                        all_boxes[j][i] = cls_dets
 
-            # skip j = 0, because it's the background class
-            if args.output_mAP and not args.write_det_results:
-                for j in range(1, detections.size(1)):
-                    dets = detections[0, j, :]
-                    mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
-                    dets = torch.masked_select(dets, mask).view(-1, 5)
-                    if dets.size(0) == 0:
-                        continue
-                    boxes = dets[:, 1:]
-                    boxes[:, 0] *= w
-                    boxes[:, 2] *= w
-                    boxes[:, 1] *= h
-                    boxes[:, 3] *= h
-                    scores = dets[:, 0].cpu().numpy()
-                    cls_dets = np.hstack((boxes.cpu().numpy(),
-                                          scores[:, np.newaxis])).astype(np.float32,
-                                                                         copy=False)
-                    all_boxes[j][i] = cls_dets
+                detect_time = _t['im_detect'].toc(average=False)
+                print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1, num_images, detect_time))
 
-            print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1,
-                                                        num_images, detect_time))
+        # for i in range(num_images):
+        #     im, gt, h, w = dataset.pull_item(i)
+        #     if not args.write_det_results and gt is None:
+        #         print('All difficult objects: %s' % dataset.ids[i][1])
+        #         difficult_lst.append('ln %d : %s' % (i + 1, dataset.ids[i][1]))
+        #         continue
+        #     x = im.unsqueeze(0)
+        #     if args.cuda:
+        #         x = x.cuda()
+        #     _t['im_detect'].tic()
+        #     with torch.no_grad():
+        #         detections = net(x)
+        #
+        #     if args.write_det_results:
+        #         det_results += get_detection_result(dataset.ids[i][1], detections, h, w, labelmap, score_thresh=0.001)
+        #
+        #     if args.save_dets:
+        #         res_lst[dataset.ids[i][1]] = detections[0].cpu()
+        #         print('%s saved' % dataset.ids[i][1])
+        #     if args.write_imgs:
+        #         _imgpath = os.path.join('%s', 'JPEGImages', '%s.jpg')
+        #         _annopath = os.path.join('%s', 'Annotations', '%s.xml')
+        #         output_detection_result(_imgpath, dataset.ids[i], detections, h, w, classes=labelmap, score_thresh=0.5,
+        #                                 out_dir='./eval/%s/bignet_output_thresh50' % args.dataset,
+        #                                 annopath=_annopath, show=False)
+        #     detect_time = _t['im_detect'].toc(average=False)
+        #
+        #     # skip j = 0, because it's the background class
+        #     if args.output_mAP and not args.write_det_results:
+        #         for j in range(1, detections.size(1)):
+        #             dets = detections[0, j, :]
+        #             mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
+        #             dets = torch.masked_select(dets, mask).view(-1, 5)
+        #             if dets.size(0) == 0:
+        #                 continue
+        #             boxes = dets[:, 1:]
+        #             boxes[:, 0] *= w
+        #             boxes[:, 2] *= w
+        #             boxes[:, 1] *= h
+        #             boxes[:, 3] *= h
+        #             scores = dets[:, 0].cpu().numpy()
+        #             cls_dets = np.hstack((boxes.cpu().numpy(),
+        #                                   scores[:, np.newaxis])).astype(np.float32,
+        #                                                                  copy=False)
+        #             all_boxes[j][i] = cls_dets
+        #
+        #     print('im_detect: {:d}/{:d} {:.3f}s'.format(i + 1,
+        #                                                 num_images, detect_time))
         # print('all diffi lst')
         # print('\n'.join(difficult_lst))
         if args.save_dets:

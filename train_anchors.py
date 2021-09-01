@@ -38,8 +38,6 @@ def str2bool(s):
 torch_bool = (torch.ones(1) > 0.).dtype
 
 parser = argparse.ArgumentParser(description='train anchors')
-parser.add_argument('--interest', default=None,
-                    type=str, help='the names of labels of interest, split by comma')
 parser.add_argument('--random_init', default=0.2, type=float,
                     help='give a random init value for each variables. This parameter can control '
                          'the range of random value, based on the original parameters from config.'
