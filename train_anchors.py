@@ -95,8 +95,8 @@ if args.cuda:
 dataset = None
 clamp = True
 test_gts = torch.load(args.eval_pth).float().cuda()
-bl = torch.load('anchors/ssd_coco_anchors.pth')
-bl = bl.cuda()
+bl = torch.load('anchors/yolov3_anchors.pth')
+bl = bl.detach().cuda()
 bl_y, bl_a = predict(bl, test_gts, True)
 bl_results = 'baseline = %.4f [loss:%.2f|power1/3:%.4f|geo mean:%.4f|mean:%.4f|recall:%.4f|power3:%.4f|best gt:%.4f]'\
              % (bl_y, *bl_a)

@@ -72,6 +72,7 @@ def mk_iou_tensor(anchors: torch.Tensor, gts: torch.Tensor, interval=512, ret_id
         ret[start:end] = best_prior_overlap
         if ret_idx:
             idx[start:end] = _
+        del overlaps, best_prior_overlap, _
     if ret_idx:
         return ret, idx
     return ret

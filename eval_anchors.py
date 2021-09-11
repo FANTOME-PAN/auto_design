@@ -68,7 +68,7 @@ bl = bl.cuda()
 _, bl_a = predict(bl, test_gts, True)
 print('ssdvoc' + template % tuple(bl_a))
 bl = torch.load('anchors/yolov3_anchors.pth')
-bl = bl.cuda()
+bl = bl.detach().cuda()
 _, bl_a = predict(bl, test_gts, True)
 print('yolo' + template % tuple(bl_a))
 

@@ -2,12 +2,14 @@ from data.coco import COCO_ROOT
 import json
 import torch
 import numpy as np
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 
 ## 修改这里的绝对地址 ##
 ## CHANGE PATH HERE ##
-detection_results_path = r'eval\detection_results2021-08-29_19-00.pth'
-save_path = r'.\detections_test-dev2017_ssdoptgt03_results.json'
+detection_results_path = r'eval\detection_results2021-09-05_05-15.pth'
+save_path = r'.\detections_test-dev2017_ssdoptreal_results.json'
 ##       END        ##
 anno_pth =COCO_ROOT + r'coco2017\Annotations\image_info_test-dev2017.json'
 # anno_pth = r'D:\COCO\annotations_train2017\annotations\instances_val2017.json'

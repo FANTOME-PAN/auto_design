@@ -59,8 +59,9 @@ class MixedIOULoss:
         )  # size [num_truths, num_priors]
         # [1,num_objects] best prior for each ground truth
         best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=False)
+        recall_msk = best_prior_overlap <= 0.5
         l1 = best_prior_overlap.mean()
-        l2 = (best_prior_overlap[best_prior_overlap <= 0.5]).mean()
+        l2 = (best_prior_overlap[recall_msk]).mean()
         l3 = (best_prior_overlap ** (1. / 3)).mean()
         # approx ssd loss loss
         # diff_wh = anchors[best_prior_idx, 2:] / truths_wh

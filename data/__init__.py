@@ -32,7 +32,8 @@ def detection_collate_cuda(batch):
     imgs = []
     for sample in batch:
         imgs.append(sample[0])
-        targets.append(torch.tensor(sample[1] or []))
+        tmp = sample[1] if sample[1] is not None else []
+        targets.append(torch.tensor(tmp))
     return torch.stack(imgs, 0), targets
 
 

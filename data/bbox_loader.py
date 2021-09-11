@@ -1,6 +1,6 @@
 from data import detection_collate_cuda, BaseTransform
 from data.bccd import BCCD_ROOT, BCCDDetection, BCCD_CLASSES
-from data.coco import COCO_ROOT, COCODetection,  COCO_CLASSES
+from data.coco import COCO_ROOT, COCODetection,  COCO_CLASSES, COCOAnnotationTransform
 from data.shwd import SHWD_ROOT, SHWDDetection, SHWD_CLASSES
 from data.voc0712 import VOC_ROOT, VOCDetection, VOC_CLASSES
 import os
@@ -57,6 +57,7 @@ class BoundingBoxesLoader:
 
 if __name__ == '__main__':
     rt = COCO_ROOT
-    data_set = COCODetection(root=rt, image_sets=(('2017', 'val'), ), transform=BaseTransform(300, (104, 117, 123)))
-    loader = BoundingBoxesLoader(data_set, [i for i in range(len(VOC_CLASSES))],
-                                 cache_pth='../truths/gts_coco_17val.pth')
+    data_set = COCODetection(root=rt, image_sets=(('2017', 'train'), ), transform=BaseTransform(300, (104, 117, 123)),
+                             target_transform=COCOAnnotationTransform(keep_difficult=False))
+    loader = BoundingBoxesLoader(data_set, [i for i in range(len(COCO_CLASSES))],
+                                 cache_pth='../truths/gts_coco_17train.pth')

@@ -11,7 +11,7 @@ from utils.box_utils import point_form
 import os
 
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '1'
 
 
 def main():
@@ -26,11 +26,11 @@ def main():
         # w = weights[:-1]
         # w = torch.tensor([0.21266897022724152, 0.3098817765712738, 1.6114717721939087, 5.077290058135986,
         #                   -0.6393837928771973, -1.5633304119110107, 0.792957067489624, 3.666994094848633])
-        with open('data\\anchors_data_reduced.txt', 'r') as f:
+        with open('data\\anchors_data.txt', 'r') as f:
             lines = f.readlines()
             table = torch.tensor([[float(o) for o in l.split()] for l in lines])
         A = table[:, :-1].log()
-        y = table[:, -1].log()
+        y = table[:, -1]
         noise = torch.zeros(y.size(), requires_grad=True)
         # y = torch.exp(y)
         opt = optim.Adam([w, noise], lr=0.001)
@@ -45,9 +45,9 @@ def main():
         print('weights:\n' + '\t'.join(['%.4f' % o for o in w.tolist()]))
         with torch.no_grad():
             pred_y = ((w[:-1] * A).sum(dim=1) + w[-1])
-            y = torch.exp(y)
-            pred_y = torch.exp(pred_y)
-        print('Y\t\tY*')
+            # y = torch.exp(y)
+            # pred_y = torch.exp(pred_y)
+        print('Y\tY*\tnoise')
         for i, ii, n in zip(y.tolist(), pred_y.tolist(), noise.detach().tolist()):
             print('%.4f\t%.4f\t%.6f' % (i, ii, n))
         torch.save(w, 'weights/r_pred_mAP_l1_3.pth')
